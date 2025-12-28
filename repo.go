@@ -12,10 +12,10 @@ import (
 
 // Repository represents a local Git repository linked to a GitHub remote.
 type Repository struct {
-	owner string
-	name  string
-	path  string // Local filesystem path
-	// Repo         *git.Repository
+	owner    string
+	name     string
+	path     string // Local filesystem path
+	gitrepo  *git.Repository
 	worktree *git.Worktree
 	// GitHubClient *github.Client
 }
@@ -67,6 +67,7 @@ func New(owner, name string, opts ...Option) (*Repository, error) {
 		owner:    owner,
 		name:     name,
 		path:     path,
+		gitrepo:  gitrepo,
 		worktree: wt,
 	}, nil
 }
@@ -87,18 +88,36 @@ func (r *Repository) CommitAll(message string) error {
 	return nil
 }
 
-// // Push pushes to the default remote (usually "origin").
-// func (r *Repository) Push() error {
-// 	err := r.Repo.Push(&git.PushOptions{
-// 		// Auth will be automatically handled if SSH key or HTTPS with token in remote URL
-// 		// For HTTPS with token, make sure remote URL is like:
-// 		// https://<token>@github.com/owner/name.git
-// 	})
-// 	if err != nil && err != git.NoErrAlreadyUpToDate {
-// 		return fmt.Errorf("push failed: %w", err)
-// 	}
-// 	return nil
-// }
+// Push pushes to the default remote (usually "origin").
+func (r *Repository) Push() error {
+	if err := r.gitrepo.Push(&git.PushOptions{
+		// Auth will be automatically handled if SSH key or HTTPS with token in remote URL
+		// For HTTPS with token, make sure remote URL is like:
+				// https://<token>@github.com/owner/name.git
+	}); err != nil { // && err != git.NoErrAlreadyUpToDate
+		return fmt.Errorf("push failed: %w", err)
+	}
+
+	return nil
+
+	// git push -u origin main
+	// if err := r.Git.Push(&git.PushOptions{
+	// 	RemoteName: remoteName,
+	// 	RemoteURL:  fmt.Sprintf("https://github.com/%s/%s.git", r.Owner, r.Name),
+
+	// 	// RefSpecs: []plumbing.RefSpec{plumbing.RefSpec(branchName + ":" + branchName)},
+	// 	Auth: &http.BasicAuth{
+	// 		Username: "MarkRosemaker",
+	// 		Password: os.Getenv("GITHUB_TOKEN"),
+	// 	},
+	// 	// Auth: &http.TokenAuth{Token: os.Getenv("GITHUB_TOKEN")},
+	// }); err != nil {
+	// 	// if err := execute(r.Path, "git", "push", "-u", "origin", "main"); err != nil {
+	// 	return fmt.Errorf("pushing changes: %w", err)
+	// }
+
+	return nil
+}
 
 // // UpdateDescription changes the repository description on GitHub.
 // func (r *Repository) UpdateDescription(newDesc string) error {
