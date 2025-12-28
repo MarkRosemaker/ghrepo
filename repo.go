@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 
 	"github.com/go-git/go-git/v6"
-	"github.com/go-git/go-git/v6/config"
 )
 
 // Repository represents a local Git repository linked to a GitHub remote.
@@ -50,7 +49,7 @@ func New(owner, name string, opts ...Option) (*Repository, error) {
 	} else if !errors.Is(err, fs.ErrNotExist) {
 		return nil, err
 	} else if cfg.initGit {
-		gitrepo, err = git.PlainInit(path, false)
+		gitrepo, err = git.PlainInit(path, false, initOpts...)
 		if err != nil {
 			return nil, err
 		}
@@ -63,14 +62,6 @@ func New(owner, name string, opts ...Option) (*Repository, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	c, err := config.LoadConfig(config.GlobalScope)
-	if err != nil {
-		return nil, err
-	}
-
-	fmt.Printf("c.Init.DefaultBranch: %v\n", c.Init.DefaultBranch)
-	fmt.Printf("c: %v\n", c)
 
 	//   - Creating the GitHub repo if requested
 	//   - Setting up origin remote
