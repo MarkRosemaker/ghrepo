@@ -58,6 +58,7 @@ func New(owner, name string, opts ...Option) (*Repository, error) {
 		return nil, err
 	}
 
+	// TODO
 	//   - Creating the GitHub repo if requested
 	//   - Setting up origin remote
 	//   - Making an initial commit if provided
