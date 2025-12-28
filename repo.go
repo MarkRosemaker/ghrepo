@@ -84,6 +84,7 @@ func (r *Repository) CommitAll(message string) error {
 
 	// Commit
 	if _, err := r.worktree.Commit(message, &git.CommitOptions{}); err != nil {
+		fmt.Printf("err: %#v\n", err)
 		return fmt.Errorf("commit failed: %w", err)
 	}
 
