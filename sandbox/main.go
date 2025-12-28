@@ -25,7 +25,7 @@ func do() error {
 		return err
 	}
 
-	if err := r.CommitAll("initial commit"); err != nil {
+	if err := r.CommitAll("auto commit"); err != nil {
 		return err
 	}
 
