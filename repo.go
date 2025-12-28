@@ -5,12 +5,13 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"net/http"
 	"os"
 	"path/filepath"
 
 	"github.com/go-git/go-git/v6"
 	"github.com/go-git/go-git/v6/config"
-	"github.com/go-git/go-git/v6/plumbing/transport/http"
+	githttp "github.com/go-git/go-git/v6/plumbing/transport/http"
 	"github.com/google/go-github/v80/github"
 )
 
@@ -18,13 +19,14 @@ const remoteName = "origin"
 
 // Repository represents a local Git repository linked to a GitHub remote.
 type Repository struct {
-	owner    string
-	name     string
-	path     string // Local filesystem path
-	gitrepo  *git.Repository
-	worktree *git.Worktree
-	remote   *git.Remote
-	ghClient *github.Client
+	owner       string
+	name        string
+	path        string // Local filesystem path
+	gitrepo     *git.Repository
+	worktree    *git.Worktree
+	remote      *git.Remote
+	github      *github.Repository
+	githubToken string
 }
 
 // NewRepository opens or initializes a repository at the given path.
@@ -76,6 +78,28 @@ func (s *Service) NewRepository(ctx context.Context, owner, name string, opts ..
 	}
 
 	// Make sure we have the repo on GitHub
+	ghrepo, rsp, err := s.github.Repositories.Get(ctx, owner, name)
+	if err != nil {
+		if !cfg.createOnGitHub || rsp.StatusCode != http.StatusNotFound {
+			return nil, fmt.Errorf("getting GitHub repository: %w", err)
+		}
+
+		org := ""
+		if cfg.ownerIsOrg {
+			org = owner
+		}
+
+		ghrepo, _, err = s.github.Repositories.Create(ctx, org, &github.Repository{
+			Name: newGo126(name),
+			// We start out with a private repository until the repository is ready to be published.
+			Visibility: newGo126("private"),
+		})
+		if err != nil {
+			return nil, fmt.Errorf("creating GitHub repository: %w", err)
+		}
+	}
+
+	// fmt.Printf("ghrepo: %v\n", ghrepo)
 
 	// Get the worktree
 	wt, err := gitrepo.Worktree()
@@ -89,12 +113,14 @@ func (s *Service) NewRepository(ctx context.Context, owner, name string, opts ..
 	//   - Making an initial commit if provided
 
 	return &Repository{
-		owner:    owner,
-		name:     name,
-		path:     path,
-		gitrepo:  gitrepo,
-		worktree: wt,
-		remote:   remote,
+		owner:       owner,
+		name:        name,
+		path:        path,
+		gitrepo:     gitrepo,
+		worktree:    wt,
+		remote:      remote,
+		github:      ghrepo,
+		githubToken: s.githubToken,
 	}, nil
 }
 
@@ -115,27 +141,18 @@ func (r *Repository) CommitAll(message string) error {
 }
 
 // Push pushes to the default remote.
-func (r *Repository) Push() error {
-	if err := r.gitrepo.Push(&git.PushOptions{
-		RemoteName: remoteName,
-		// RemoteURL:  deref(r.Github.GitCommitsURL),
-		// RemoteURL:  fmt.Sprintf("https://github.com/%s/%s.git", r.Owner, r.Name),
-
-		// RemoteName: "origin",
-		// RefSpecs:   []config.RefSpec{"refs/heads/*:refs/heads/*"}, // Push all branches (or specify "refs/heads/main:refs/heads/main")
-		Auth: &http.BasicAuth{
-			Username: "git",                     // Can be anything non-empty for token auth
-			Password: os.Getenv("GITHUB_TOKEN"), // Recommended: GitHub PAT (not raw password)
+func (r *Repository) Push(ctx context.Context) error {
+	if err := r.gitrepo.PushContext(ctx, &git.PushOptions{
+		RemoteURL: fmt.Sprintf("https://github.com/%s/%s.git", r.owner, r.name),
+		Auth: &githttp.BasicAuth{
+			// Can be anything non-empty for token auth
+			Username: "git",
+			// Recommended: GitHub PAT (not raw password)
+			Password: r.githubToken,
 		},
-		Progress: os.Stdout, // Optional: show progress
-	}); err != nil { // && err != git.NoErrAlreadyUpToDate
+	}); err != nil && !errors.Is(err, git.NoErrAlreadyUpToDate) {
 		return fmt.Errorf("push failed: %w", err)
 	}
-
-	// RemoteURL: fmt.Sprintf("https://%s@github.com/%s/%s.git",
-	// 	os.Getenv("GITHUB_TOKEN"), r.owner, r.name),
-	// // RemoteURL: fmt.Sprintf("git@github.com:%s/%s.git", r.owner, r.name),
-	// Auth: &http.TokenAuth{Token: os.Getenv("GITHUB_TOKEN")},
 
 	return nil
 
@@ -170,3 +187,6 @@ func (r *Repository) Push() error {
 // 	}
 // 	return nil
 // }
+
+// TODO: replace with new once go1.26 is out
+func newGo126[T any](v T) *T { return &v }

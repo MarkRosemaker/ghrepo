@@ -14,6 +14,7 @@ var opts = []ghrepo.Option{
 	ghrepo.MakeDirAll,
 	ghrepo.InitGit,
 	ghrepo.CreateRemote,
+	ghrepo.CreateOnGitHub,
 }
 
 func main() {
@@ -30,12 +31,11 @@ func do(ctx context.Context) error {
 		return err
 	}
 
-	return nil
 	// if err := r.CommitAll("auto commit"); err != nil {
 	// 	return err
 	// }
 
-	if err := r.Push(); err != nil {
+	if err := r.Push(ctx); err != nil {
 		return err
 	}
 

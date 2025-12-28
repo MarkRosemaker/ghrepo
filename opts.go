@@ -5,13 +5,14 @@ type Option func(*repoConfig)
 
 // repoConfig holds the configuration (internal)
 type repoConfig struct {
-	baseDir      string
-	mkdirAll     bool
-	initGit      bool
-	createRemote bool
+	baseDir        string
+	mkdirAll       bool
+	initGit        bool
+	createRemote   bool
+	createOnGitHub bool
+	ownerIsOrg     bool
 
 	// token          string
-	// createOnGitHub bool
 	// private        bool
 	// description    string
 	// defaultBranch  string
@@ -34,6 +35,12 @@ func InitGit(o *repoConfig) { o.initGit = true }
 
 // CreateRemote instructs the initializer to create a remote, if it does not exists.
 func CreateRemote(o *repoConfig) { o.createRemote = true }
+
+// CreateOnGitHub instructs the initializer to create the repository on GitHub, if it does not exists.
+func CreateOnGitHub(o *repoConfig) { o.createOnGitHub = true }
+
+// OwnerIsOrg clarifies that the given owner is not the user, but an organization on GitHub.
+func OwnerIsOrg(o *repoConfig) { o.ownerIsOrg = true }
 
 // ghrepo.CreateOnGitHub(),
 // ghrepo.WithDescription("My awesome project"),
