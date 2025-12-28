@@ -1,6 +1,7 @@
 package ghrepo
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -8,7 +9,12 @@ import (
 	"path/filepath"
 
 	"github.com/go-git/go-git/v6"
+	"github.com/go-git/go-git/v6/config"
+	"github.com/go-git/go-git/v6/plumbing/transport/http"
+	"github.com/google/go-github/v80/github"
 )
+
+const remoteName = "origin"
 
 // Repository represents a local Git repository linked to a GitHub remote.
 type Repository struct {
@@ -17,14 +23,15 @@ type Repository struct {
 	path     string // Local filesystem path
 	gitrepo  *git.Repository
 	worktree *git.Worktree
-	// GitHubClient *github.Client
+	remote   *git.Remote
+	ghClient *github.Client
 }
 
-// New opens or initializes a repository at the given path.
-func New(owner, name string, opts ...Option) (*Repository, error) {
+// NewRepository opens or initializes a repository at the given path.
+func (s *Service) NewRepository(ctx context.Context, owner, name string, opts ...Option) (*Repository, error) {
 	// Apply the options
 	cfg := &repoConfig{}
-	for _, opt := range opts {
+	for _, opt := range append(s.opts, opts...) {
 		opt(cfg)
 	}
 
@@ -52,6 +59,24 @@ func New(owner, name string, opts ...Option) (*Repository, error) {
 		}
 	}
 
+	// Make sure we have a remote
+	remote, err := gitrepo.Remote(remoteName)
+	if err != nil {
+		if !cfg.createRemote || !errors.Is(err, git.ErrRemoteNotFound) {
+			return nil, fmt.Errorf("failed to get remote: %w", err)
+		}
+
+		// Add correct HTTPS remote
+		if remote, err = gitrepo.CreateRemote(&config.RemoteConfig{
+			Name: remoteName,
+			URLs: []string{fmt.Sprintf("https://github.com/%s/%s.git", owner, name)},
+		}); err != nil {
+			return nil, fmt.Errorf("failed to create origin remote: %w", err)
+		}
+	}
+
+	// Make sure we have the repo on GitHub
+
 	// Get the worktree
 	wt, err := gitrepo.Worktree()
 	if err != nil {
@@ -69,6 +94,7 @@ func New(owner, name string, opts ...Option) (*Repository, error) {
 		path:     path,
 		gitrepo:  gitrepo,
 		worktree: wt,
+		remote:   remote,
 	}, nil
 }
 
@@ -88,15 +114,28 @@ func (r *Repository) CommitAll(message string) error {
 	return nil
 }
 
-// Push pushes to the default remote (usually "origin").
+// Push pushes to the default remote.
 func (r *Repository) Push() error {
 	if err := r.gitrepo.Push(&git.PushOptions{
-		// Auth will be automatically handled if SSH key or HTTPS with token in remote URL
-		// For HTTPS with token, make sure remote URL is like:
-				// https://<token>@github.com/owner/name.git
+		RemoteName: remoteName,
+		// RemoteURL:  deref(r.Github.GitCommitsURL),
+		// RemoteURL:  fmt.Sprintf("https://github.com/%s/%s.git", r.Owner, r.Name),
+
+		// RemoteName: "origin",
+		// RefSpecs:   []config.RefSpec{"refs/heads/*:refs/heads/*"}, // Push all branches (or specify "refs/heads/main:refs/heads/main")
+		Auth: &http.BasicAuth{
+			Username: "git",                     // Can be anything non-empty for token auth
+			Password: os.Getenv("GITHUB_TOKEN"), // Recommended: GitHub PAT (not raw password)
+		},
+		Progress: os.Stdout, // Optional: show progress
 	}); err != nil { // && err != git.NoErrAlreadyUpToDate
 		return fmt.Errorf("push failed: %w", err)
 	}
+
+	// RemoteURL: fmt.Sprintf("https://%s@github.com/%s/%s.git",
+	// 	os.Getenv("GITHUB_TOKEN"), r.owner, r.name),
+	// // RemoteURL: fmt.Sprintf("git@github.com:%s/%s.git", r.owner, r.name),
+	// Auth: &http.TokenAuth{Token: os.Getenv("GITHUB_TOKEN")},
 
 	return nil
 

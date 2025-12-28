@@ -5,9 +5,10 @@ type Option func(*repoConfig)
 
 // repoConfig holds the configuration (internal)
 type repoConfig struct {
-	baseDir  string
-	mkdirAll bool
-	initGit  bool
+	baseDir      string
+	mkdirAll     bool
+	initGit      bool
+	createRemote bool
 
 	// token          string
 	// createOnGitHub bool
@@ -30,6 +31,9 @@ func MakeDirAll(o *repoConfig) { o.mkdirAll = true }
 
 // InitGit instructs the initializer to initialize git in the repository directory, if it was not initialized.
 func InitGit(o *repoConfig) { o.initGit = true }
+
+// CreateRemote instructs the initializer to create a remote, if it does not exists.
+func CreateRemote(o *repoConfig) { o.createRemote = true }
 
 // ghrepo.CreateOnGitHub(),
 // ghrepo.WithDescription("My awesome project"),
