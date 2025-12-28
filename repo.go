@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 
 	"github.com/go-git/go-git/v6"
+	"github.com/go-git/go-git/v6/config"
 )
 
 // Repository represents a local Git repository linked to a GitHub remote.
@@ -62,6 +63,13 @@ func New(owner, name string, opts ...Option) (*Repository, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	c, err := config.LoadConfig(config.GlobalScope)
+	if err != nil {
+		return nil, err
+	}
+
+	fmt.Printf("c: %v\n", c)
 
 	//   - Creating the GitHub repo if requested
 	//   - Setting up origin remote
