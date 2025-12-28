@@ -29,7 +29,9 @@ func do() error {
 		return err
 	}
 
-	fmt.Printf("r: %#v\n", r)
+	if err := r.Push(); err != nil {
+		return err
+	}
 
 	return nil
 
