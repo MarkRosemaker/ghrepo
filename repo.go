@@ -40,21 +40,16 @@ func New(owner, name string, opts ...Option) (*Repository, error) {
 	}
 
 	// Make sure we have a git repo
-	var gitrepo *git.Repository
-	if _, err := os.Stat(filepath.Join(path, ".git")); err == nil {
-		gitrepo, err = git.PlainOpen(path)
-		if err != nil {
+	gitrepo, err := git.PlainOpen(path)
+	if err != nil {
+		if !cfg.initGit || !errors.Is(err, git.ErrRepositoryNotExists) {
 			return nil, fmt.Errorf("failed to open git repo at %s: %w", path, err)
 		}
-	} else if !errors.Is(err, fs.ErrNotExist) {
-		return nil, err
-	} else if cfg.initGit {
+
 		gitrepo, err = git.PlainInit(path, false, initOpts...)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to init git repo at %s: %w", path, err)
 		}
-	} else {
-		return nil, errors.New("is not a git repository")
 	}
 
 	// Get the worktree
