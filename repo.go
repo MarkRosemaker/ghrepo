@@ -69,6 +69,7 @@ func New(owner, name string, opts ...Option) (*Repository, error) {
 		return nil, err
 	}
 
+	fmt.Printf("c.Init.DefaultBranch: %v\n", c.Init.DefaultBranch)
 	fmt.Printf("c: %v\n", c)
 
 	//   - Creating the GitHub repo if requested
