@@ -1,0 +1,168 @@
+# github.com/Microsoft/go-winio v0.6.2
+## explicit; go 1.21
+github.com/Microsoft/go-winio
+github.com/Microsoft/go-winio/internal/fs
+github.com/Microsoft/go-winio/internal/socket
+github.com/Microsoft/go-winio/internal/stringbuffer
+github.com/Microsoft/go-winio/pkg/guid
+# github.com/ProtonMail/go-crypto v1.3.0
+## explicit; go 1.22.0
+github.com/ProtonMail/go-crypto/bitcurves
+github.com/ProtonMail/go-crypto/brainpool
+github.com/ProtonMail/go-crypto/eax
+github.com/ProtonMail/go-crypto/internal/byteutil
+github.com/ProtonMail/go-crypto/ocb
+github.com/ProtonMail/go-crypto/openpgp
+github.com/ProtonMail/go-crypto/openpgp/aes/keywrap
+github.com/ProtonMail/go-crypto/openpgp/armor
+github.com/ProtonMail/go-crypto/openpgp/ecdh
+github.com/ProtonMail/go-crypto/openpgp/ecdsa
+github.com/ProtonMail/go-crypto/openpgp/ed25519
+github.com/ProtonMail/go-crypto/openpgp/ed448
+github.com/ProtonMail/go-crypto/openpgp/eddsa
+github.com/ProtonMail/go-crypto/openpgp/elgamal
+github.com/ProtonMail/go-crypto/openpgp/errors
+github.com/ProtonMail/go-crypto/openpgp/internal/algorithm
+github.com/ProtonMail/go-crypto/openpgp/internal/ecc
+github.com/ProtonMail/go-crypto/openpgp/internal/encoding
+github.com/ProtonMail/go-crypto/openpgp/packet
+github.com/ProtonMail/go-crypto/openpgp/s2k
+github.com/ProtonMail/go-crypto/openpgp/x25519
+github.com/ProtonMail/go-crypto/openpgp/x448
+# github.com/cloudflare/circl v1.6.1
+## explicit; go 1.22.0
+github.com/cloudflare/circl/dh/x25519
+github.com/cloudflare/circl/dh/x448
+github.com/cloudflare/circl/ecc/goldilocks
+github.com/cloudflare/circl/internal/conv
+github.com/cloudflare/circl/internal/sha3
+github.com/cloudflare/circl/math
+github.com/cloudflare/circl/math/fp25519
+github.com/cloudflare/circl/math/fp448
+github.com/cloudflare/circl/math/mlsbset
+github.com/cloudflare/circl/sign
+github.com/cloudflare/circl/sign/ed25519
+github.com/cloudflare/circl/sign/ed448
+# github.com/cyphar/filepath-securejoin v0.6.1
+## explicit; go 1.18
+github.com/cyphar/filepath-securejoin
+github.com/cyphar/filepath-securejoin/internal/consts
+# github.com/emirpasic/gods v1.18.1
+## explicit; go 1.2
+github.com/emirpasic/gods/containers
+github.com/emirpasic/gods/lists
+github.com/emirpasic/gods/lists/arraylist
+github.com/emirpasic/gods/trees
+github.com/emirpasic/gods/trees/binaryheap
+github.com/emirpasic/gods/utils
+# github.com/go-git/gcfg/v2 v2.0.2
+## explicit; go 1.21
+github.com/go-git/gcfg/v2
+github.com/go-git/gcfg/v2/scanner
+github.com/go-git/gcfg/v2/token
+github.com/go-git/gcfg/v2/types
+# github.com/go-git/go-billy/v6 v6.0.0-20251209065551-8afc3eb64e4d
+## explicit; go 1.24.0
+github.com/go-git/go-billy/v6
+github.com/go-git/go-billy/v6/helper/chroot
+github.com/go-git/go-billy/v6/helper/polyfill
+github.com/go-git/go-billy/v6/memfs
+github.com/go-git/go-billy/v6/osfs
+github.com/go-git/go-billy/v6/util
+# github.com/go-git/go-git/v6 v6.0.0-20251224103503-78aff6aa5ea9
+## explicit; go 1.24.0
+github.com/go-git/go-git/v6
+github.com/go-git/go-git/v6/config
+github.com/go-git/go-git/v6/internal/pathutil
+github.com/go-git/go-git/v6/internal/reference
+github.com/go-git/go-git/v6/internal/repository
+github.com/go-git/go-git/v6/internal/revision
+github.com/go-git/go-git/v6/internal/url
+github.com/go-git/go-git/v6/plumbing
+github.com/go-git/go-git/v6/plumbing/cache
+github.com/go-git/go-git/v6/plumbing/color
+github.com/go-git/go-git/v6/plumbing/filemode
+github.com/go-git/go-git/v6/plumbing/format/config
+github.com/go-git/go-git/v6/plumbing/format/diff
+github.com/go-git/go-git/v6/plumbing/format/gitignore
+github.com/go-git/go-git/v6/plumbing/format/idxfile
+github.com/go-git/go-git/v6/plumbing/format/index
+github.com/go-git/go-git/v6/plumbing/format/objfile
+github.com/go-git/go-git/v6/plumbing/format/packfile
+github.com/go-git/go-git/v6/plumbing/format/packfile/util
+github.com/go-git/go-git/v6/plumbing/format/pktline
+github.com/go-git/go-git/v6/plumbing/format/revfile
+github.com/go-git/go-git/v6/plumbing/hash
+github.com/go-git/go-git/v6/plumbing/object
+github.com/go-git/go-git/v6/plumbing/protocol
+github.com/go-git/go-git/v6/plumbing/protocol/packp
+github.com/go-git/go-git/v6/plumbing/protocol/packp/capability
+github.com/go-git/go-git/v6/plumbing/protocol/packp/sideband
+github.com/go-git/go-git/v6/plumbing/revlist
+github.com/go-git/go-git/v6/plumbing/storer
+github.com/go-git/go-git/v6/plumbing/transport
+github.com/go-git/go-git/v6/plumbing/transport/file
+github.com/go-git/go-git/v6/plumbing/transport/git
+github.com/go-git/go-git/v6/plumbing/transport/http
+github.com/go-git/go-git/v6/plumbing/transport/ssh
+github.com/go-git/go-git/v6/plumbing/transport/ssh/knownhosts
+github.com/go-git/go-git/v6/plumbing/transport/ssh/sshagent
+github.com/go-git/go-git/v6/storage
+github.com/go-git/go-git/v6/storage/filesystem
+github.com/go-git/go-git/v6/storage/filesystem/dotgit
+github.com/go-git/go-git/v6/storage/memory
+github.com/go-git/go-git/v6/utils/binary
+github.com/go-git/go-git/v6/utils/convert
+github.com/go-git/go-git/v6/utils/diff
+github.com/go-git/go-git/v6/utils/ioutil
+github.com/go-git/go-git/v6/utils/merkletrie
+github.com/go-git/go-git/v6/utils/merkletrie/filesystem
+github.com/go-git/go-git/v6/utils/merkletrie/index
+github.com/go-git/go-git/v6/utils/merkletrie/internal/frame
+github.com/go-git/go-git/v6/utils/merkletrie/noder
+github.com/go-git/go-git/v6/utils/sync
+github.com/go-git/go-git/v6/utils/trace
+# github.com/golang/groupcache v0.0.0-20241129210726-2c02b8208cf8
+## explicit; go 1.20
+github.com/golang/groupcache/lru
+# github.com/kevinburke/ssh_config v1.4.0
+## explicit; go 1.18
+github.com/kevinburke/ssh_config
+# github.com/klauspost/cpuid/v2 v2.3.0
+## explicit; go 1.22
+github.com/klauspost/cpuid/v2
+# github.com/pjbgf/sha1cd v0.5.0
+## explicit; go 1.22
+github.com/pjbgf/sha1cd
+github.com/pjbgf/sha1cd/internal
+github.com/pjbgf/sha1cd/ubc
+# github.com/sergi/go-diff v1.4.0
+## explicit; go 1.13
+github.com/sergi/go-diff/diffmatchpatch
+# golang.org/x/crypto v0.46.0
+## explicit; go 1.24.0
+golang.org/x/crypto/argon2
+golang.org/x/crypto/blake2b
+golang.org/x/crypto/blowfish
+golang.org/x/crypto/cast5
+golang.org/x/crypto/chacha20
+golang.org/x/crypto/cryptobyte
+golang.org/x/crypto/cryptobyte/asn1
+golang.org/x/crypto/curve25519
+golang.org/x/crypto/hkdf
+golang.org/x/crypto/internal/alias
+golang.org/x/crypto/internal/poly1305
+golang.org/x/crypto/sha3
+golang.org/x/crypto/ssh
+golang.org/x/crypto/ssh/agent
+golang.org/x/crypto/ssh/internal/bcrypt_pbkdf
+golang.org/x/crypto/ssh/knownhosts
+# golang.org/x/net v0.48.0
+## explicit; go 1.24.0
+golang.org/x/net/internal/socks
+golang.org/x/net/proxy
+# golang.org/x/sys v0.39.0
+## explicit; go 1.24.0
+golang.org/x/sys/cpu
+golang.org/x/sys/unix
+golang.org/x/sys/windows
