@@ -5,15 +5,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io/fs"
-	"net/http"
-	"os"
 	"os/exec"
-	"path/filepath"
 	"strings"
 
 	"github.com/go-git/go-git/v6"
-	"github.com/go-git/go-git/v6/config"
 	githttp "github.com/go-git/go-git/v6/plumbing/transport/http"
 	"github.com/google/go-github/v80/github"
 	"github.com/spf13/afero"
@@ -35,99 +30,7 @@ type Repository struct {
 	githubToken string
 }
 
-// NewRepository opens or initializes a repository at the given path.
-func (s *Service) NewRepository(ctx context.Context, owner, name string, opts ...Option) (*Repository, error) {
-	// Apply the options
-	cfg := &repoConfig{}
-	for _, opt := range append(s.opts, opts...) {
-		opt(cfg)
-	}
-
-	path := filepath.Join(cfg.baseDir, owner, name)
-
-	// Make sure it exists on local
-	if cfg.mkdirAll {
-		if err := os.MkdirAll(path, fs.ModePerm); err != nil {
-			return nil, err
-		}
-	} else if _, err := os.Stat(path); err != nil {
-		return nil, err
-	}
-
-	// Make sure we have a git repo
-	gitrepo, err := git.PlainOpen(path)
-	if err != nil {
-		if !cfg.initGit || !errors.Is(err, git.ErrRepositoryNotExists) {
-			return nil, fmt.Errorf("failed to open git repo at %s: %w", path, err)
-		}
-
-		gitrepo, err = git.PlainInit(path, false, initOpts...)
-		if err != nil {
-			return nil, fmt.Errorf("failed to init git repo at %s: %w", path, err)
-		}
-	}
-
-	// Make sure we have a remote
-	remote, err := gitrepo.Remote(remoteName)
-	if err != nil {
-		if !cfg.createRemote || !errors.Is(err, git.ErrRemoteNotFound) {
-			return nil, fmt.Errorf("failed to get remote: %w", err)
-		}
-
-		// Add correct HTTPS remote
-		if remote, err = gitrepo.CreateRemote(&config.RemoteConfig{
-			Name: remoteName,
-			URLs: []string{fmt.Sprintf("https://github.com/%s/%s.git", owner, name)},
-		}); err != nil {
-			return nil, fmt.Errorf("failed to create origin remote: %w", err)
-		}
-	}
-
-	// Make sure we have the repo on GitHub
-	ghrepo, rsp, err := s.github.Repositories.Get(ctx, owner, name)
-	if err != nil {
-		if !cfg.createOnGitHub || rsp.StatusCode != http.StatusNotFound {
-			return nil, fmt.Errorf("getting GitHub repository: %w", err)
-		}
-
-		org := ""
-		if cfg.ownerIsOrg {
-			org = owner
-		}
-
-		ghrepo, _, err = s.github.Repositories.Create(ctx, org, &github.Repository{
-			Name: newGo126(name),
-			// We start out with a private repository until the repository is ready to be published.
-			Visibility: newGo126("private"),
-		})
-		if err != nil {
-			return nil, fmt.Errorf("creating GitHub repository: %w", err)
-		}
-	}
-
-	// Get the worktree
-	wt, err := gitrepo.Worktree()
-	if err != nil {
-		return nil, err
-	}
-
-	// TODO
-	//   - Creating the GitHub repo if requested
-	//   - Setting up origin remote
-	//   - Making an initial commit if provided
-
-	return &Repository{
-		Fs:          afero.NewBasePathFs(afero.NewOsFs(), path),
-		owner:       owner,
-		name:        name,
-		path:        path,
-		gitrepo:     gitrepo,
-		worktree:    wt,
-		remote:      remote,
-		github:      ghrepo,
-		githubToken: s.githubToken,
-	}, nil
-}
+func (r *Repository) String() string { return fmt.Sprintf("%s/%s", r.owner, r.name) }
 
 // HasChanges returns true if there are any unstaged, staged, or untracked changes.
 // It returns false only if the working tree is completely clean.
