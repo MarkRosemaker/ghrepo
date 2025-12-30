@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"github.com/go-git/go-git/v6"
-	githttp "github.com/go-git/go-git/v6/plumbing/transport/http"
 	"github.com/google/go-github/v80/github"
 	"github.com/spf13/afero"
 )
@@ -20,14 +19,14 @@ const remoteName = "origin"
 type Repository struct {
 	// Use the repository folder as its own file system.
 	afero.Fs
-	owner       string
-	name        string
-	path        string // Local filesystem path
-	gitrepo     *git.Repository
-	worktree    *git.Worktree
-	remote      *git.Remote
-	github      *github.Repository
-	githubToken string
+	owner    string
+	name     string
+	path     string // Local filesystem path
+	gitrepo  *git.Repository
+	worktree *git.Worktree
+	remote   *git.Remote
+	github   *github.Repository
+	s        *Service
 }
 
 func (r Repository) String() string { return fmt.Sprintf("%s/%s", r.owner, r.name) }
@@ -84,35 +83,23 @@ func (r *Repository) CommitAll(message string) error {
 func (r *Repository) Push(ctx context.Context) error {
 	if err := r.gitrepo.PushContext(ctx, &git.PushOptions{
 		RemoteURL: fmt.Sprintf("https://github.com/%s/%s.git", r.owner, r.name),
-		Auth: &githttp.BasicAuth{
-			// Can be anything non-empty for token auth
-			Username: "git",
-			// Recommended: GitHub PAT (not raw password)
-			Password: r.githubToken,
-		},
+		Auth:      r.s.gitAuth,
 	}); err != nil && !errors.Is(err, git.NoErrAlreadyUpToDate) {
 		return fmt.Errorf("push failed: %w", err)
 	}
 
 	return nil
+}
 
-	// git push -u origin main
-	// if err := r.Git.Push(&git.PushOptions{
-	// 	RemoteName: remoteName,
-	// 	RemoteURL:  fmt.Sprintf("https://github.com/%s/%s.git", r.Owner, r.Name),
+// func (r *Repository) SetTeamPermission(ctx context.Context, teamSlug, permission string) error {
+// 	_, err := r.s.github.Teams.AddTeamRepoBySlug(ctx, r.owner, teamSlug, r.owner, r.name,
+// 		&github.TeamAddTeamRepoOptions{Permission: permission})
+// 	return err
+// }
 
-	// 	// RefSpecs: []plumbing.RefSpec{plumbing.RefSpec(branchName + ":" + branchName)},
-	// 	Auth: &http.BasicAuth{
-	// 		Username: "MarkRosemaker",
-	// 		Password: os.Getenv("GITHUB_TOKEN"),
-	// 	},
-	// 	// Auth: &http.TokenAuth{Token: os.Getenv("GITHUB_TOKEN")},
-	// }); err != nil {
-	// 	// if err := execute(r.Path, "git", "push", "-u", "origin", "main"); err != nil {
-	// 	return fmt.Errorf("pushing changes: %w", err)
-	// }
-
-	return nil
+func (r *Repository) SetTopics(ctx context.Context, topics []string) error {
+	_, _, err := r.s.github.Repositories.ReplaceAllTopics(ctx, r.owner, r.name, topics)
+	return err
 }
 
 // // UpdateDescription changes the repository description on GitHub.

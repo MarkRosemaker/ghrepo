@@ -11,6 +11,7 @@ import (
 
 	"github.com/go-git/go-git/v6"
 	"github.com/go-git/go-git/v6/config"
+	githttp "github.com/go-git/go-git/v6/plumbing/transport/http"
 	"github.com/google/go-github/v80/github"
 	"github.com/spf13/afero"
 	"golang.org/x/oauth2"
@@ -19,6 +20,7 @@ import (
 type Service struct {
 	githubToken string
 	github      *github.Client
+	gitAuth     *githttp.BasicAuth
 	opts        []Option
 }
 
@@ -27,6 +29,12 @@ func NewService(ctx context.Context, githubToken string, opts ...Option) *Servic
 		githubToken: githubToken,
 		github: github.NewClient(oauth2.NewClient(ctx, oauth2.StaticTokenSource(
 			&oauth2.Token{AccessToken: githubToken}))),
+		gitAuth: &githttp.BasicAuth{
+			// Can be anything non-empty for token auth
+			Username: "git",
+			// Recommended: GitHub PAT (not raw password)
+			Password: githubToken,
+		},
 		opts: opts,
 	}
 }
@@ -108,14 +116,14 @@ func (s *Service) NewRepository(ctx context.Context, owner, name string, opts ..
 	}
 
 	return &Repository{
-		Fs:          afero.NewBasePathFs(afero.NewOsFs(), path),
-		owner:       owner,
-		name:        name,
-		path:        path,
-		gitrepo:     gitrepo,
-		worktree:    wt,
-		remote:      remote,
-		github:      ghrepo,
-		githubToken: s.githubToken,
+		Fs:       afero.NewBasePathFs(afero.NewOsFs(), path),
+		owner:    owner,
+		name:     name,
+		path:     path,
+		gitrepo:  gitrepo,
+		worktree: wt,
+		remote:   remote,
+		github:   ghrepo,
+		s:        s,
 	}, nil
 }
