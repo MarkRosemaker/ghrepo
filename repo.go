@@ -1,24 +1,30 @@
 package ghrepo
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
 	"io/fs"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strings"
 
 	"github.com/go-git/go-git/v6"
 	"github.com/go-git/go-git/v6/config"
 	githttp "github.com/go-git/go-git/v6/plumbing/transport/http"
 	"github.com/google/go-github/v80/github"
+	"github.com/spf13/afero"
 )
 
 const remoteName = "origin"
 
 // Repository represents a local Git repository linked to a GitHub remote.
 type Repository struct {
+	// Use the repository folder as its own file system.
+	afero.Fs
 	owner       string
 	name        string
 	path        string // Local filesystem path
@@ -111,6 +117,7 @@ func (s *Service) NewRepository(ctx context.Context, owner, name string, opts ..
 	//   - Making an initial commit if provided
 
 	return &Repository{
+		Fs:          afero.NewBasePathFs(afero.NewOsFs(), path),
 		owner:       owner,
 		name:        name,
 		path:        path,
@@ -131,6 +138,27 @@ func (r *Repository) HasChanges() (bool, error) {
 	}
 
 	return !status.IsClean(), nil
+}
+
+// ExecCommand runs a command in the repository's root directory.
+// It returns the combined stdout + stderr as a string.
+// The command name and arguments are passed separately (like exec.Command).
+func (r *Repository) ExecCommand(ctx context.Context, name string, args ...string) ([]byte, error) {
+	cmd := exec.CommandContext(ctx, name, args...)
+	cmd.Dir = r.path
+
+	out, err := cmd.CombinedOutput()
+	if err == nil {
+		return out, nil
+	}
+
+	// Include command for better debugging
+	cmdStr := strings.Join(append([]string{name}, args...), " ")
+	if out = bytes.TrimSpace(out); len(out) > 0 {
+		return nil, fmt.Errorf("command %q failed:\n%s\n%w", cmdStr, string(out), err)
+	}
+
+	return nil, fmt.Errorf("command %q failed: %w", cmdStr, err)
 }
 
 // Commit adds all changes, commits with the given message.

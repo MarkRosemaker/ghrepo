@@ -5,6 +5,7 @@ go 1.25.5
 require (
 	github.com/go-git/go-git/v6 v6.0.0-20251224103503-78aff6aa5ea9
 	github.com/google/go-github/v80 v80.0.0
+	github.com/spf13/afero v1.15.0
 	golang.org/x/oauth2 v0.34.0
 )
 
@@ -25,4 +26,5 @@ require (
 	golang.org/x/crypto v0.46.0 // indirect
 	golang.org/x/net v0.48.0 // indirect
 	golang.org/x/sys v0.39.0 // indirect
+	golang.org/x/text v0.32.0 // indirect
 )
