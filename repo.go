@@ -99,8 +99,6 @@ func (s *Service) NewRepository(ctx context.Context, owner, name string, opts ..
 		}
 	}
 
-	// fmt.Printf("ghrepo: %v\n", ghrepo)
-
 	// Get the worktree
 	wt, err := gitrepo.Worktree()
 	if err != nil {
@@ -122,6 +120,17 @@ func (s *Service) NewRepository(ctx context.Context, owner, name string, opts ..
 		github:      ghrepo,
 		githubToken: s.githubToken,
 	}, nil
+}
+
+// HasChanges returns true if there are any unstaged, staged, or untracked changes.
+// It returns false only if the working tree is completely clean.
+func (r *Repository) HasChanges() (bool, error) {
+	status, err := r.worktree.Status()
+	if err != nil {
+		return false, fmt.Errorf("failed to get status: %w", err)
+	}
+
+	return !status.IsClean(), nil
 }
 
 // Commit adds all changes, commits with the given message.
