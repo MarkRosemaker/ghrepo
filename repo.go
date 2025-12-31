@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"os/exec"
+	"reflect"
+	"slices"
 	"strings"
 
 	"github.com/go-git/go-git/v6"
@@ -97,23 +99,64 @@ func (r *Repository) Push(ctx context.Context) error {
 // 	return err
 // }
 
+// SetTopics sets the repository topics on GitHub.
 func (r *Repository) SetTopics(ctx context.Context, topics []string) error {
-	_, _, err := r.s.github.Repositories.ReplaceAllTopics(ctx, r.owner, r.name, topics)
-	return err
+	if slices.Equal(r.github.Topics, topics) {
+		return nil
+	}
+
+	updated, _, err := r.s.github.Repositories.ReplaceAllTopics(ctx, r.owner, r.name, topics)
+	if err != nil {
+		return err
+	}
+
+	r.github.Topics = updated
+
+	return nil
 }
 
-// // UpdateDescription changes the repository description on GitHub.
-// func (r *Repository) UpdateDescription(newDesc string) error {
-// 	repoEdit := &github.Repository{
-// 		Description: github.String(newDesc),
-// 	}
+// Edit edits the repository on GitHub.
+func (r *Repository) Edit(ctx context.Context, update *github.Repository) error {
+	if !hasChanges(r.github, update) {
+		return nil
+	}
 
-// 	_, _, err := r.GitHubClient.Repositories.Edit(r.ctx, r.GitHubOwner, r.GitHubName, repoEdit)
-// 	if err != nil {
-// 		return fmt.Errorf("failed to update description on GitHub: %w", err)
-// 	}
-// 	return nil
-// }
+	repo, _, err := r.s.github.Repositories.Edit(ctx, r.owner, r.name, update)
+	if err != nil {
+		return err
+	}
 
-// TODO: replace with new once go1.26 is out
-func newGo126[T any](v T) *T { return &v }
+	r.github = repo
+
+	return nil
+}
+
+func hasChanges(initial, update *github.Repository) bool {
+	uv := reflect.ValueOf(update)
+	iv := reflect.ValueOf(initial)
+
+	for i := 0; i < uv.NumField(); i++ {
+		uField := uv.Field(i)
+		if uField.IsNil() {
+			continue // skip nil fields in update
+		}
+
+		iField := iv.Field(i)
+		if iField.IsNil() {
+			return true // update sets a value where initial is nil
+		}
+
+		uVal := reflect.Indirect(uField)
+		iVal := reflect.Indirect(iField)
+		if !reflect.DeepEqual(uVal.Interface(), iVal.Interface()) {
+			return true
+		}
+	}
+
+	return false
+}
+
+// UpdateDescription changes the repository description on GitHub.
+func (r *Repository) UpdateDescription(ctx context.Context, descr string) error {
+	return r.Edit(ctx, &github.Repository{Description: github.Ptr(descr)})
+}
