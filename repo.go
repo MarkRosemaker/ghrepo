@@ -44,6 +44,23 @@ func (r *Repository) HasChanges() (bool, error) {
 	return !status.IsClean(), nil
 }
 
+// GetChangedFiles returns a list of files that were changed.
+func (r *Repository) GetChangedFiles() ([]string, error) {
+	s, err := r.worktree.Status()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get status: %w", err)
+	}
+
+	changes := []string{}
+	for file, status := range s {
+		if status.Worktree != git.Unmodified || status.Staging != git.Unmodified {
+			changes = append(changes, file)
+		}
+	}
+
+	return changes, nil
+}
+
 // ExecCommand runs a command in the repository's root directory.
 // It returns the combined stdout + stderr as a string.
 // The command name and arguments are passed separately (like exec.Command).

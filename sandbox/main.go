@@ -29,15 +29,15 @@ func do(ctx context.Context) error {
 		return err
 	}
 
-	if err := r.CommitAll("auto commit"); err != nil {
-		return err
-	}
+	fmt.Println(r.GetChangedFiles())
 
-	if err := r.Push(ctx); err != nil {
-		return err
-	}
+	// if err := r.CommitAll("auto commit"); err != nil {
+	// 	return err
+	// }
 
-	fmt.Printf("r: %#v\n", r)
+	// if err := r.Push(ctx); err != nil {
+	// 	return err
+	// }
 
 	return nil
 }
