@@ -69,7 +69,7 @@ github.com/go-git/go-billy/v6/helper/polyfill
 github.com/go-git/go-billy/v6/memfs
 github.com/go-git/go-billy/v6/osfs
 github.com/go-git/go-billy/v6/util
-# github.com/go-git/go-git/v6 v6.0.0-20251230102402-1764c9ae7fb5
+# github.com/go-git/go-git/v6 v6.0.0-20251231065035-29ae690a9f19
 ## explicit; go 1.24.0
 github.com/go-git/go-git/v6
 github.com/go-git/go-git/v6/config
