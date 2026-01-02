@@ -177,3 +177,11 @@ func hasChanges(initial, update *github.Repository) bool {
 func (r *Repository) UpdateDescription(ctx context.Context, descr string) error {
 	return r.Edit(ctx, &github.Repository{Description: github.Ptr(descr)})
 }
+
+func (r *Repository) GetDescription() string {
+	if r.github.Description == nil {
+		return ""
+	}
+
+	return *r.github.Description
+}
