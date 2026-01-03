@@ -20,6 +20,12 @@ import (
 // lenChecksum is the length of a SHA-256 checksum when encoded as hexadecimal (64 characters).
 const lenChecksum int64 = 64
 
+// CreateRelease creates a new release for the repository.
+func (r *Repository) CreateRelease(ctx context.Context, release *github.RepositoryRelease) (*github.RepositoryRelease, error) {
+	rel, _, err := r.s.github.Repositories.CreateRelease(ctx, r.owner, r.name, release)
+	return rel, err
+}
+
 // UploadReleaseBinary zips a binary file and uploads it as a release asset to a GitHub release.
 // It also computes a SHA-256 checksum during the upload and uploads a separate checksum file.
 //
