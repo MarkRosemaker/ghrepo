@@ -17,10 +17,14 @@ import (
 	"github.com/google/go-github/v80/github"
 )
 
+// lenChecksum is the length of a SHA-256 checksum when encoded as hexadecimal (64 characters).
 const lenChecksum int64 = 64
 
-// UploadReleaseBinary zips and uploads a binary to a release, along with its checksum.
-// The file name inside the zip is called the same as the repository name, with optional suffix. For windows binaries, set suffix to ".exe".
+// UploadReleaseBinary zips a binary file and uploads it as a release asset to a GitHub release.
+// It also computes a SHA-256 checksum during the upload and uploads a separate checksum file.
+//
+// The binary is placed inside a zip archive with a single entry. The name of the file inside the zip
+// is the repository name with an optional suffix (e.g., ".exe" for Windows binaries).
 func (r *Repository) UploadReleaseBinary(ctx context.Context, relID int,
 	path string, info fs.FileInfo, suffix string) error {
 	src, err := r.Open(path)
@@ -30,7 +34,7 @@ func (r *Repository) UploadReleaseBinary(ctx context.Context, relID int,
 	defer src.Close()
 
 	// We need to zip the binary locally and then upload because we need to know its size.
-	tmpPath, err := r.zipBinary(filepath.Base(path), src, info, suffix)
+	tmpPath, err := r.zipBinary(src, info, suffix)
 	if err != nil {
 		return fmt.Errorf("zipping binary: %w", err)
 	}
@@ -65,30 +69,32 @@ func (r *Repository) UploadReleaseBinary(ctx context.Context, relID int,
 	return nil
 }
 
-func (r *Repository) zipBinary(fullName string, fi io.Reader, info fs.FileInfo, suffix string) (string, error) {
-	tmpZip, err := os.CreateTemp("", fullName+".zip")
+// zipBinary creates a temporary zip file containing a single binary entry.
+// Returns the path to the temporary zip file.
+func (r *Repository) zipBinary(fi io.Reader, info fs.FileInfo, suffix string) (string, error) {
+	tmp, err := os.CreateTemp("", r.name+".zip")
 	if err != nil {
 		return "", err
 	}
-	defer tmpZip.Close()
+	defer tmp.Close()
 
-	zipHeader, err := zip.FileInfoHeader(info)
+	fh, err := zip.FileInfoHeader(info)
 	if err != nil {
 		return "", err
 	}
 
 	// Using FileInfoHeader() above uses the basename of the file.
 	// If we want to name the file inside the zip differently, we need to overwrite it.
-	zipHeader.Name = r.name + suffix
+	fh.Name = r.name + suffix
 
 	// Change to deflate to gain better compression
 	// see http://golang.org/pkg/archive/zip/#pkg-constants
-	zipHeader.Method = zip.Deflate
+	fh.Method = zip.Deflate
 
-	zipWriter := zip.NewWriter(tmpZip)
-	defer zipWriter.Close()
+	zw := zip.NewWriter(tmp)
+	defer zw.Close()
 
-	h, err := zipWriter.CreateHeader(zipHeader)
+	h, err := zw.CreateHeader(fh)
 	if err != nil {
 		return "", err
 	}
@@ -97,10 +103,15 @@ func (r *Repository) zipBinary(fullName string, fi io.Reader, info fs.FileInfo, 
 		return "", err
 	}
 
-	return tmpZip.Name(), nil
+	return tmp.Name(), nil
 }
 
-// uploadReleaseAsset uploads a release asset to the specified release ID.
+// uploadReleaseAsset uploads a single release asset to GitHub.
+//
+// It constructs the upload URL, sets the correct Content-Type based on file extension,
+// and performs the HTTP request using the go-github client.
+//
+// Returns the created ReleaseAsset on success.
 func (r *Repository) uploadReleaseAsset(ctx context.Context, relID int,
 	assetName string, reader io.Reader, size int64) (*github.ReleaseAsset, error) {
 	req, err := r.s.github.NewUploadRequest(
@@ -117,6 +128,7 @@ func (r *Repository) uploadReleaseAsset(ctx context.Context, relID int,
 		return nil, err
 	}
 
+	// Check for successful creation
 	if resp.StatusCode != http.StatusCreated {
 		b, _ := io.ReadAll(resp.Body)
 		return nil, fmt.Errorf("got status code %d %s: %s",
