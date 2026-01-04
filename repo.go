@@ -85,12 +85,13 @@ func (r *Repository) ExecCommand(ctx context.Context, name string, args ...strin
 }
 
 // Checkout checks out the specified branch.
-func (r *Repository) Checkout(branch string) error {
-	return r.worktree.Checkout(&git.CheckoutOptions{
-		Branch: plumbing.NewBranchReferenceName(branch),
-	})
-}
+// func (r *Repository) Checkout(branch string) error {
+// 	return r.worktree.Checkout(&git.CheckoutOptions{
+// 		Branch: plumbing.NewBranchReferenceName(branch),
+// 	})
+// }
 
+// CheckoutDefault checks out the default branch (either main or master).
 func (r *Repository) CheckoutDefault() error {
 	return r.worktree.Checkout(&git.CheckoutOptions{
 		Branch: r.defaultBranch,
