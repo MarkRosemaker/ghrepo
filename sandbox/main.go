@@ -29,7 +29,11 @@ func do(ctx context.Context) error {
 		return err
 	}
 
-	fmt.Println(r.GetChangedFiles())
+	// fmt.Println(r.GetChangedFiles())
+
+	if err := r.CheckoutDefault(); err != nil {
+		return fmt.Errorf("checking out default: %w", err)
+	}
 
 	// if err := r.CommitAll("auto commit"); err != nil {
 	// 	return err

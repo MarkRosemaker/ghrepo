@@ -71,6 +71,11 @@ func (s *Service) NewRepository(ctx context.Context, owner, name string, opts ..
 		}
 	}
 
+	defaultBranch, err := getDefaultBranch(gitrepo)
+	if err != nil {
+		return nil, err
+	}
+
 	// Make sure we have a remote
 	remote, err := gitrepo.Remote(remoteName)
 	if err != nil {
@@ -116,14 +121,15 @@ func (s *Service) NewRepository(ctx context.Context, owner, name string, opts ..
 	}
 
 	return &Repository{
-		Fs:       afero.NewBasePathFs(afero.NewOsFs(), path),
-		owner:    owner,
-		name:     name,
-		path:     path,
-		gitrepo:  gitrepo,
-		worktree: wt,
-		remote:   remote,
-		github:   ghrepo,
-		s:        s,
+		Fs:            afero.NewBasePathFs(afero.NewOsFs(), path),
+		owner:         owner,
+		name:          name,
+		path:          path,
+		gitrepo:       gitrepo,
+		defaultBranch: defaultBranch,
+		worktree:      wt,
+		remote:        remote,
+		github:        ghrepo,
+		s:             s,
 	}, nil
 }

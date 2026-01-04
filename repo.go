@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/go-git/go-git/v6"
+	"github.com/go-git/go-git/v6/plumbing"
 	"github.com/google/go-github/v80/github"
 	"github.com/spf13/afero"
 )
@@ -21,14 +22,15 @@ const remoteName = "origin"
 type Repository struct {
 	// Use the repository folder as its own file system.
 	afero.Fs
-	owner    string
-	name     string
-	path     string // Local filesystem path
-	gitrepo  *git.Repository
-	worktree *git.Worktree
-	remote   *git.Remote
-	github   *github.Repository
-	s        *Service
+	owner         string
+	name          string
+	path          string // Local filesystem path
+	gitrepo       *git.Repository
+	defaultBranch plumbing.ReferenceName
+	worktree      *git.Worktree
+	remote        *git.Remote
+	github        *github.Repository
+	s             *Service
 }
 
 func (r Repository) String() string { return fmt.Sprintf("%s/%s", r.owner, r.name) }
@@ -80,6 +82,36 @@ func (r *Repository) ExecCommand(ctx context.Context, name string, args ...strin
 	}
 
 	return nil, fmt.Errorf("command %q failed: %w", cmdStr, err)
+}
+
+// Checkout checks out the specified branch.
+func (r *Repository) Checkout(branch string) error {
+	return r.worktree.Checkout(&git.CheckoutOptions{
+		Branch: plumbing.NewBranchReferenceName(branch),
+	})
+}
+
+func (r *Repository) CheckoutDefault() error {
+	return r.worktree.Checkout(&git.CheckoutOptions{
+		Branch: r.defaultBranch,
+	})
+}
+
+func getDefaultBranch(r *git.Repository) (plumbing.ReferenceName, error) {
+	for _, ref := range []plumbing.ReferenceName{
+		plumbing.Main,
+		plumbing.Master,
+	} {
+		if _, err := r.Reference(ref, true); err == nil {
+			return ref, nil
+		} else if errors.Is(err, plumbing.ErrReferenceNotFound) {
+			continue
+		} else {
+			return "", err
+		}
+	}
+
+	return "", fmt.Errorf("not default branch found")
 }
 
 // Commit adds all changes, commits with the given message.
