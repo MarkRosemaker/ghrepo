@@ -246,12 +246,19 @@ func hasChanges(initial, update *github.Repository) bool {
 	return false
 }
 
-// UpdateDescription changes the repository description on GitHub.
-func (r *Repository) UpdateDescription(ctx context.Context, descr string) error {
+// SetDescription changes the repository description on GitHub.
+func (r *Repository) SetDescription(ctx context.Context, descr string) error {
 	return r.Edit(ctx, &github.Repository{Description: github.Ptr(descr)})
 }
 
-func (r *Repository) GetDescription() string {
+// Name returns the name of the repository.
+func (r *Repository) Name() string { return r.name }
+
+// Owner returns the owner of the repository, which may either be a user or an organization.
+func (r *Repository) Owner() string { return r.owner }
+
+// Description returns the GitHub description of the repository.
+func (r *Repository) Description() string {
 	if r.github.Description == nil {
 		return ""
 	}
