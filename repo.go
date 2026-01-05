@@ -91,11 +91,32 @@ func (r *Repository) ExecCommand(ctx context.Context, name string, args ...strin
 // 	})
 // }
 
+// IsDefaultBranch returns true if we are on the default branch.
+func (r *Repository) IsDefaultBranch() (bool, error) {
+	h, err := r.gitrepo.Head()
+	if err != nil {
+		return false, err
+	}
+
+	return h.Name() == r.defaultBranch, nil
+}
+
 // CheckoutDefault checks out the default branch (either main or master).
 func (r *Repository) CheckoutDefault() error {
 	return r.worktree.Checkout(&git.CheckoutOptions{
 		Branch: r.defaultBranch,
 	})
+}
+
+// Pull incorporates changes from a remote repository into the current branch.
+func (r *Repository) Pull(ctx context.Context) error {
+	if err := r.worktree.PullContext(ctx, &git.PullOptions{
+		Auth: r.s.gitAuth,
+	}); err == nil || errors.Is(err, git.NoErrAlreadyUpToDate) {
+		return nil
+	} else {
+		return err
+	}
 }
 
 func getDefaultBranch(r *git.Repository) (plumbing.ReferenceName, error) {

@@ -29,11 +29,13 @@ func do(ctx context.Context) error {
 		return err
 	}
 
-	// fmt.Println(r.GetChangedFiles())
+	fmt.Println(r.IsDefaultBranch())
 
-	if err := r.CheckoutDefault(); err != nil {
-		return fmt.Errorf("checking out default: %w", err)
-	}
+	// if err := r.CheckoutDefault(true); err != nil {
+	// 	return fmt.Errorf("checking out default: %w", err)
+	// }
+
+	fmt.Printf("r.Pull(ctx): %v\n", r.Pull(ctx))
 
 	// if err := r.CommitAll("auto commit"); err != nil {
 	// 	return err
