@@ -14,11 +14,26 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/google/go-github/v80/github"
 )
 
 // lenChecksum is the length of a SHA-256 checksum when encoded as hexadecimal (64 characters).
 const lenChecksum int64 = 64
+
+func (r *Repository) LatestRelease(ctx context.Context) (*github.RepositoryRelease, error) {
+	rel, _, err := r.s.github.Repositories.GetLatestRelease(ctx, r.owner, r.name)
+	return rel, err
+}
+
+func (r *Repository) LatestReleaseVersion(ctx context.Context) (*semver.Version, error) {
+	rel, err := r.LatestRelease(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("getting latest release: %w", err)
+	}
+
+	return semver.NewVersion(rel.GetTagName())
+}
 
 // CreateRelease creates a new release for the repository.
 func (r *Repository) CreateRelease(ctx context.Context, release *github.RepositoryRelease) (*github.RepositoryRelease, error) {
