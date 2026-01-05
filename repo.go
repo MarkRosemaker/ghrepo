@@ -136,20 +136,39 @@ func getDefaultBranch(r *git.Repository) (plumbing.ReferenceName, error) {
 	return "", fmt.Errorf("not default branch found")
 }
 
-// Commit adds all changes, commits with the given message.
-func (r *Repository) CommitAll(message string) error {
-	// Stage all changes
-	if _, err := r.worktree.Add("."); err != nil {
-		return fmt.Errorf("failed to add all files to worktree: %w", err)
+// Add adds the file contents of a file in the worktree to the index.
+// func (r *Repository) Add(path string) error {
+// 	_, err := r.worktree.Add(path)
+// 	return err
+// }
+
+// // Commit stores the current contents of the index in a new commit along with
+// // a log message from the user describing the changes.
+// func (r *Repository) Commit(msg string) error {
+// 	_, err := r.worktree.Commit(msg, &git.CommitOptions{})
+// 	return err
+// }
+
+// Commit commits all files that match a certain pattern,
+// then commits with the given message.
+func (r *Repository) Commit(paths []string, message string) error {
+	for _, path := range paths {
+		if _, err := r.worktree.Add(path); err != nil {
+			return fmt.Errorf("failed to add %q to worktree: %w", path, err)
+		}
 	}
 
-	// Commit
 	if _, err := r.worktree.Commit(message, &git.CommitOptions{}); err != nil &&
 		!errors.Is(err, git.ErrEmptyCommit) {
 		return fmt.Errorf("commit failed: %w", err)
 	}
 
 	return nil
+}
+
+// Commit adds all changes, commits with the given message.
+func (r *Repository) CommitAll(msg string) error {
+	return r.Commit([]string{"."}, msg)
 }
 
 // Push pushes to the default remote.
