@@ -267,6 +267,9 @@ func (r *Repository) Owner() string { return r.owner }
 
 // Description returns the GitHub description of the repository.
 func (r *Repository) Description() string {
+	r.muGithub.Lock()
+	defer r.muGithub.Unlock()
+
 	if r.github.Description == nil {
 		return ""
 	}
@@ -275,4 +278,9 @@ func (r *Repository) Description() string {
 }
 
 // Topics returns the GitHub topics of the repository.
-func (r *Repository) Topics() []string { return r.github.Topics }
+func (r *Repository) Topics() []string {
+	r.muGithub.Lock()
+	defer r.muGithub.Unlock()
+
+	return r.github.Topics
+}
