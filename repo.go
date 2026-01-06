@@ -284,3 +284,11 @@ func (r *Repository) Topics() []string {
 
 	return r.github.Topics
 }
+
+// Archived returns whether the repository is archived.
+func (r *Repository) Archived() bool {
+	r.muGithub.Lock()
+	defer r.muGithub.Unlock()
+
+	return *r.github.Archived
+}
