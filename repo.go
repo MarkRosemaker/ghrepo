@@ -21,7 +21,7 @@ const remoteName = "origin"
 
 // Repository represents a local Git repository linked to a GitHub remote.
 type Repository struct {
-	muGithup sync.Mutex
+	muGithub sync.Mutex
 	// Use the repository folder as its own file system.
 	afero.Fs
 	owner         string
@@ -193,8 +193,8 @@ func (r *Repository) Push(ctx context.Context) error {
 
 // SetTopics sets the repository topics on GitHub.
 func (r *Repository) SetTopics(ctx context.Context, topics []string) error {
-	r.muGithup.Lock()
-	defer r.muGithup.Unlock()
+	r.muGithub.Lock()
+	defer r.muGithub.Unlock()
 
 	if slices.Equal(r.github.Topics, topics) {
 		return nil
@@ -212,8 +212,8 @@ func (r *Repository) SetTopics(ctx context.Context, topics []string) error {
 
 // Edit edits the repository on GitHub.
 func (r *Repository) Edit(ctx context.Context, update *github.Repository) error {
-	r.muGithup.Lock()
-	defer r.muGithup.Unlock()
+	r.muGithub.Lock()
+	defer r.muGithub.Unlock()
 
 	if !hasChanges(r.github, update) {
 		return nil
