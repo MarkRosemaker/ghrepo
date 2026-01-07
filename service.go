@@ -71,8 +71,29 @@ func (s *Service) NewRepository(ctx context.Context, owner, name string, opts ..
 		}
 	}
 
+	// Get the worktree
+	wt, err := gitrepo.Worktree()
+	if err != nil {
+		return nil, err
+	}
+
 	defaultBranch, err := getDefaultBranch(gitrepo)
 	if err != nil {
+		if !cfg.initGit || !errors.Is(err, errNoDefaultBranch) {
+			return nil, err
+		}
+
+		// Initialize the default branch
+		if err := wt.Checkout(&git.CheckoutOptions{
+			Branch: plumbing.Main,
+			Create: true,
+		}); err != nil {
+			return nil, fmt.Errorf("failed to create default branch: %w", err)
+		}
+
+		defaultBranch = plumbing.Main
+	}
+
 		return nil, err
 	}
 
@@ -112,12 +133,6 @@ func (s *Service) NewRepository(ctx context.Context, owner, name string, opts ..
 		if err != nil {
 			return nil, fmt.Errorf("creating GitHub repository: %w", err)
 		}
-	}
-
-	// Get the worktree
-	wt, err := gitrepo.Worktree()
-	if err != nil {
-		return nil, err
 	}
 
 	return &Repository{

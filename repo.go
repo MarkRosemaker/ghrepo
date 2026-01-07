@@ -121,6 +121,8 @@ func (r *Repository) Pull(ctx context.Context) error {
 	}
 }
 
+var errNoDefaultBranch = errors.New("no default branch found")
+
 func getDefaultBranch(r *git.Repository) (plumbing.ReferenceName, error) {
 	for _, ref := range []plumbing.ReferenceName{
 		plumbing.Main,
@@ -135,7 +137,7 @@ func getDefaultBranch(r *git.Repository) (plumbing.ReferenceName, error) {
 		}
 	}
 
-	return "", fmt.Errorf("not default branch found")
+	return "", errNoDefaultBranch
 }
 
 // Add adds the file contents of a file in the worktree to the index.
