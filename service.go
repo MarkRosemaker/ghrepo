@@ -11,6 +11,7 @@ import (
 
 	"github.com/go-git/go-git/v6"
 	"github.com/go-git/go-git/v6/config"
+	"github.com/go-git/go-git/v6/plumbing"
 	githttp "github.com/go-git/go-git/v6/plumbing/transport/http"
 	"github.com/google/go-github/v80/github"
 	"github.com/spf13/afero"
@@ -92,9 +93,6 @@ func (s *Service) NewRepository(ctx context.Context, owner, name string, opts ..
 		}
 
 		defaultBranch = plumbing.Main
-	}
-
-		return nil, err
 	}
 
 	// Make sure we have a remote
