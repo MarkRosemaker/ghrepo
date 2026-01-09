@@ -137,7 +137,7 @@ func (s *Service) NewRepository(ctx context.Context, owner, name string, opts ..
 	}
 
 	getErr := fmt.Errorf("getting GitHub repository: %w", err)
-	if !cfg.createOnGitHub || rsp.StatusCode != http.StatusNotFound {
+	if !cfg.createOnGitHub || rsp == nil || rsp.StatusCode != http.StatusNotFound {
 		return nil, getErr
 	}
 
