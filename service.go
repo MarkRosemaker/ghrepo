@@ -1,6 +1,7 @@
 package ghrepo
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -8,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"sync"
 
 	"github.com/go-git/go-git/v6"
 	"github.com/go-git/go-git/v6/config"
@@ -23,6 +25,9 @@ type Service struct {
 	github      *github.Client
 	gitAuth     *githttp.BasicAuth
 	opts        []Option
+
+	mu    sync.Mutex
+	repos map[string]map[string]*github.Repository
 }
 
 func NewService(ctx context.Context, githubToken string, opts ...Option) *Service {
@@ -36,7 +41,8 @@ func NewService(ctx context.Context, githubToken string, opts ...Option) *Servic
 			// Recommended: GitHub PAT (not raw password)
 			Password: githubToken,
 		},
-		opts: opts,
+		opts:  opts,
+		repos: map[string]map[string]*github.Repository{},
 	}
 }
 
@@ -54,7 +60,7 @@ func (s *Service) NewRepository(ctx context.Context, owner, name string, opts ..
 		owner:  owner,
 		name:   name,
 		path:   path,
-		github: cfg.onGithub,
+		github: cmp.Or(cfg.onGithub, s.getRepo(owner, name)),
 		s:      s,
 	}
 
@@ -121,7 +127,7 @@ func (s *Service) NewRepository(ctx context.Context, owner, name string, opts ..
 	}
 
 	if r.github != nil {
-		return r, nil
+		return r, nil // already have GitHub repo
 	}
 
 	ghrepo, rsp, err := s.github.Repositories.Get(ctx, owner, name)
@@ -152,4 +158,56 @@ func (s *Service) NewRepository(ctx context.Context, owner, name string, opts ..
 	r.github = ghrepo
 
 	return r, nil
+}
+
+// PrefetchUserRepositories fetches all repositories by the given user and caches them.
+// This is useful to avoid hitting the GitHub API rate limits when creating multiple repositories.
+func (s *Service) PrefetchUserRepositories(ctx context.Context, user string) error {
+	repos, _, err := s.github.Repositories.ListByUser(ctx, user, nil)
+	if err != nil {
+		return err
+	}
+
+	s.addRepos(user, repos)
+	return nil
+}
+
+// PrefetchOrgRepositories fetches all repositories by the given organization and caches them.
+// This is useful to avoid hitting the GitHub API rate limits when creating multiple repositories.
+func (s *Service) PrefetchOrgRepositories(ctx context.Context, org string) error {
+	repos, _, err := s.github.Repositories.ListByOrg(ctx, org, nil)
+	if err != nil {
+		return err
+	}
+
+	s.addRepos(org, repos)
+	return nil
+}
+
+func (s *Service) addRepos(owner string, repos []*github.Repository) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if len(repos) == 0 {
+		return
+	}
+
+	if _, ok := s.repos[owner]; !ok {
+		s.repos[owner] = map[string]*github.Repository{}
+	}
+
+	for _, r := range repos {
+		s.repos[owner][r.GetName()] = r
+	}
+}
+
+func (s *Service) getRepo(owner, name string) *github.Repository {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if repos, ok := s.repos[owner]; ok {
+		return repos[name]
+	}
+
+	return nil
 }

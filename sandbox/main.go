@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"os"
 
@@ -24,12 +23,16 @@ func do(ctx context.Context) error {
 		// ghrepo.CreateOnGitHub,
 	)
 
-	r, err := s.NewRepository(ctx, "faetools", "devtool")
-	if err != nil {
+	if err := s.PrefetchUserRepositories(ctx, "MarkRosemaker"); err != nil {
 		return err
 	}
 
-	fmt.Println(r.LatestReleaseVersion(ctx))
+	// r, err := s.NewRepository(ctx, "faetools", "devtool")
+	// if err != nil {
+	// 	return err
+	// }
+
+	// fmt.Println(r.LatestReleaseVersion(ctx))
 
 	// fmt.Println(r.IsDefaultBranch())
 
