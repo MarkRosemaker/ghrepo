@@ -124,20 +124,43 @@ func (r *Repository) Pull(ctx context.Context) error {
 var errNoDefaultBranch = errors.New("no default branch found")
 
 func getDefaultBranch(r *git.Repository) (plumbing.ReferenceName, error) {
-	for _, ref := range []plumbing.ReferenceName{
-		plumbing.Main,
-		plumbing.Master,
-	} {
-		if _, err := r.Reference(ref, true); err == nil {
-			return ref, nil
-		} else if errors.Is(err, plumbing.ErrReferenceNotFound) {
-			continue
-		} else {
+	// Check remote's default branch (origin/HEAD if valid)
+	if ref, err := r.Reference(plumbing.NewRemoteReferenceName("origin", "HEAD"), true); err == nil {
+		if short, ok := strings.CutPrefix(refString(ref), "refs/remotes/origin/"); ok {
+			return plumbing.NewBranchReferenceName(short), nil
+		}
+	} else if !errors.Is(err, plumbing.ErrReferenceNotFound) {
+		return "", err
+	}
+
+	// Check if head is missing, pragmatically assume "main"
+	if _, err := r.Head(); errors.Is(err, plumbing.ErrReferenceNotFound) {
+		return plumbing.Main, nil
+	} else if err != nil {
+		return "", err
+	}
+
+	// Fallback to existing common branches
+	for _, candidate := range []plumbing.ReferenceName{plumbing.Main, plumbing.Master} {
+		if _, err := r.Reference(candidate, true); err == nil {
+			return candidate, nil
+		} else if !errors.Is(err, plumbing.ErrReferenceNotFound) {
 			return "", err
 		}
 	}
 
 	return "", errNoDefaultBranch
+}
+
+func refString(ref *plumbing.Reference) string {
+	switch ref.Type() {
+	case plumbing.SymbolicReference:
+		return ref.Target().String()
+	case plumbing.HashReference:
+		return ref.Name().String()
+	default:
+		return ""
+	}
 }
 
 // Add adds the file contents of a file in the worktree to the index.

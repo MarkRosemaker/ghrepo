@@ -47,7 +47,8 @@ func (r *Repository) CreateRelease(ctx context.Context, release *github.Reposito
 // The binary is placed inside a zip archive with a single entry. The name of the file inside the zip
 // is the repository name with an optional suffix (e.g., ".exe" for Windows binaries).
 func (r *Repository) UploadReleaseBinary(ctx context.Context, relID int,
-	path string, info fs.FileInfo, suffix string) error {
+	path string, info fs.FileInfo, suffix string,
+) error {
 	src, err := r.Open(path)
 	if err != nil {
 		return fmt.Errorf("opening file: %w", err)
@@ -154,7 +155,8 @@ func (r *Repository) zipBinary(fi io.Reader, info fs.FileInfo, suffix string) (s
 //
 // Returns the created ReleaseAsset on success.
 func (r *Repository) uploadReleaseAsset(ctx context.Context, relID int,
-	assetName string, reader io.Reader, size int64) (*github.ReleaseAsset, error) {
+	assetName string, reader io.Reader, size int64,
+) (*github.ReleaseAsset, error) {
 	// Create the upload request with known content length.
 	req, err := r.s.github.NewUploadRequest(
 		fmt.Sprintf("repos/%s/%s/releases/%d/assets?name=%s", r.owner, r.name, relID, assetName),
