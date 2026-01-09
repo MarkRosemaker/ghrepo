@@ -1,5 +1,7 @@
 package ghrepo
 
+import "github.com/google/go-github/v80/github"
+
 // Option is a functional option for configuring Repository creation/opening
 type Option func(*repoConfig)
 
@@ -9,6 +11,7 @@ type repoConfig struct {
 	mkdirAll       bool
 	initGit        bool
 	createRemote   bool
+	onGithub       *github.Repository
 	createOnGitHub bool
 	ownerIsOrg     bool
 
@@ -25,6 +28,11 @@ type repoConfig struct {
 // If not set, uses the current directory.
 func WithBaseDir(baseDir string) Option {
 	return func(o *repoConfig) { o.baseDir = baseDir }
+}
+
+// WithGithubRepo sets the GitHub repository to link to, so that no fetching/creation is needed.
+func WithGithubRepo(r *github.Repository) Option {
+	return func(o *repoConfig) { o.onGithub = r }
 }
 
 // MakeDirAll instructs the initializer to create the repository directory, if it does not exists.

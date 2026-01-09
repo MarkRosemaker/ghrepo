@@ -49,6 +49,14 @@ func (s *Service) NewRepository(ctx context.Context, owner, name string, opts ..
 	}
 
 	path := filepath.Join(cfg.baseDir, owner, name)
+	r := &Repository{
+		Fs:     afero.NewBasePathFs(afero.NewOsFs(), path),
+		owner:  owner,
+		name:   name,
+		path:   path,
+		github: cfg.onGithub,
+		s:      s,
+	}
 
 	// Make sure it exists on local
 	if cfg.mkdirAll {
@@ -60,50 +68,51 @@ func (s *Service) NewRepository(ctx context.Context, owner, name string, opts ..
 	}
 
 	// Make sure we have a git repo
-	gitrepo, err := git.PlainOpen(path)
+	var err error
+	r.gitrepo, err = git.PlainOpen(path)
 	if err != nil {
 		if !cfg.initGit || !errors.Is(err, git.ErrRepositoryNotExists) {
 			return nil, fmt.Errorf("failed to open git repo at %s: %w", path, err)
 		}
 
-		gitrepo, err = git.PlainInit(path, false, initOpts...)
+		r.gitrepo, err = git.PlainInit(path, false, initOpts...)
 		if err != nil {
 			return nil, fmt.Errorf("failed to init git repo at %s: %w", path, err)
 		}
 	}
 
 	// Get the worktree
-	wt, err := gitrepo.Worktree()
+	r.worktree, err = r.gitrepo.Worktree()
 	if err != nil {
 		return nil, err
 	}
 
-	defaultBranch, err := getDefaultBranch(gitrepo)
+	r.defaultBranch, err = getDefaultBranch(r.gitrepo)
 	if err != nil {
 		if !cfg.initGit || !errors.Is(err, errNoDefaultBranch) {
 			return nil, err
 		}
 
 		// Initialize the default branch
-		if err := wt.Checkout(&git.CheckoutOptions{
+		if err := r.worktree.Checkout(&git.CheckoutOptions{
 			Branch: plumbing.Main,
 			Create: true,
 		}); err != nil {
 			return nil, fmt.Errorf("failed to create default branch: %w", err)
 		}
 
-		defaultBranch = plumbing.Main
+		r.defaultBranch = plumbing.Main
 	}
 
 	// Make sure we have a remote
-	remote, err := gitrepo.Remote(remoteName)
+	r.remote, err = r.gitrepo.Remote(remoteName)
 	if err != nil {
 		if !cfg.createRemote || !errors.Is(err, git.ErrRemoteNotFound) {
 			return nil, fmt.Errorf("failed to get remote: %w", err)
 		}
 
 		// Add correct HTTPS remote
-		if remote, err = gitrepo.CreateRemote(&config.RemoteConfig{
+		if r.remote, err = r.gitrepo.CreateRemote(&config.RemoteConfig{
 			Name: remoteName,
 			URLs: []string{fmt.Sprintf("https://github.com/%s/%s.git", owner, name)},
 		}); err != nil {
@@ -111,39 +120,36 @@ func (s *Service) NewRepository(ctx context.Context, owner, name string, opts ..
 		}
 	}
 
-	// Make sure we have the repo on GitHub
-	ghrepo, rsp, err := s.github.Repositories.Get(ctx, owner, name)
-	if err != nil {
-		getErr := fmt.Errorf("getting GitHub repository: %w", err)
-		if !cfg.createOnGitHub || rsp.StatusCode != http.StatusNotFound {
-			return nil, getErr
-		}
-
-		org := ""
-		if cfg.ownerIsOrg {
-			org = owner
-		}
-
-		ghrepo, _, err = s.github.Repositories.Create(ctx, org, &github.Repository{
-			Name: github.Ptr(name),
-			// We start out with a private repository until the repository is ready to be published.
-			Visibility: github.Ptr("private"),
-		})
-		if err != nil {
-			return nil, errors.Join(getErr, fmt.Errorf("creating GitHub repository: %w", err))
-		}
+	if r.github != nil {
+		return r, nil
 	}
 
-	return &Repository{
-		Fs:            afero.NewBasePathFs(afero.NewOsFs(), path),
-		owner:         owner,
-		name:          name,
-		path:          path,
-		gitrepo:       gitrepo,
-		defaultBranch: defaultBranch,
-		worktree:      wt,
-		remote:        remote,
-		github:        ghrepo,
-		s:             s,
-	}, nil
+	ghrepo, rsp, err := s.github.Repositories.Get(ctx, owner, name)
+	if err == nil {
+		r.github = ghrepo
+		return r, nil
+	}
+
+	getErr := fmt.Errorf("getting GitHub repository: %w", err)
+	if !cfg.createOnGitHub || rsp.StatusCode != http.StatusNotFound {
+		return nil, getErr
+	}
+
+	org := ""
+	if cfg.ownerIsOrg {
+		org = owner
+	}
+
+	ghrepo, _, err = s.github.Repositories.Create(ctx, org, &github.Repository{
+		Name: github.Ptr(name),
+		// We start out with a private repository until the repository is ready to be published.
+		Visibility: github.Ptr("private"),
+	})
+	if err != nil {
+		return nil, errors.Join(getErr, fmt.Errorf("creating GitHub repository: %w", err))
+	}
+
+	r.github = ghrepo
+
+	return r, nil
 }
