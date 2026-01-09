@@ -114,8 +114,9 @@ func (s *Service) NewRepository(ctx context.Context, owner, name string, opts ..
 	// Make sure we have the repo on GitHub
 	ghrepo, rsp, err := s.github.Repositories.Get(ctx, owner, name)
 	if err != nil {
+		getErr := fmt.Errorf("getting GitHub repository: %w", err)
 		if !cfg.createOnGitHub || rsp.StatusCode != http.StatusNotFound {
-			return nil, fmt.Errorf("getting GitHub repository: %w", err)
+			return nil, getErr
 		}
 
 		org := ""
@@ -129,7 +130,7 @@ func (s *Service) NewRepository(ctx context.Context, owner, name string, opts ..
 			Visibility: github.Ptr("private"),
 		})
 		if err != nil {
-			return nil, fmt.Errorf("creating GitHub repository: %w", err)
+			return nil, errors.Join(getErr, fmt.Errorf("creating GitHub repository: %w", err))
 		}
 	}
 
