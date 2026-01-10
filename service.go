@@ -20,6 +20,8 @@ import (
 	"golang.org/x/oauth2"
 )
 
+const maxPerPage = 100
+
 type Service struct {
 	githubToken string
 	github      *github.Client
@@ -163,34 +165,50 @@ func (s *Service) NewRepository(ctx context.Context, owner, name string, opts ..
 // PrefetchUserRepositories fetches all repositories by the given user and caches them.
 // This is useful to avoid hitting the GitHub API rate limits when creating multiple repositories.
 func (s *Service) PrefetchUserRepositories(ctx context.Context, user string) error {
-	repos, _, err := s.github.Repositories.ListByUser(ctx, user, nil)
-	if err != nil {
-		return err
+	page := 1
+	for page > 0 {
+		repos, resp, err := s.github.Repositories.ListByUser(ctx, user,
+			&github.RepositoryListByUserOptions{
+				ListOptions: github.ListOptions{Page: page, PerPage: maxPerPage},
+			})
+		if err != nil {
+			return err
+		}
+
+		s.addRepos(org, repos)
+		page = resp.NextPage
 	}
 
-	s.addRepos(user, repos)
 	return nil
 }
 
 // PrefetchOrgRepositories fetches all repositories by the given organization and caches them.
 // This is useful to avoid hitting the GitHub API rate limits when creating multiple repositories.
 func (s *Service) PrefetchOrgRepositories(ctx context.Context, org string) error {
-	repos, _, err := s.github.Repositories.ListByOrg(ctx, org, nil)
-	if err != nil {
-		return err
+	page := 1
+	for page > 0 {
+		repos, resp, err := s.github.Repositories.ListByOrg(ctx, org,
+			&github.RepositoryListByOrgOptions{
+				ListOptions: github.ListOptions{Page: page, PerPage: maxPerPage},
+			})
+		if err != nil {
+			return err
+		}
+
+		s.addRepos(org, repos)
+		page = resp.NextPage
 	}
 
-	s.addRepos(org, repos)
 	return nil
 }
 
 func (s *Service) addRepos(owner string, repos []*github.Repository) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
 	if len(repos) == 0 {
 		return
 	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
 
 	if _, ok := s.repos[owner]; !ok {
 		s.repos[owner] = map[string]*github.Repository{}
