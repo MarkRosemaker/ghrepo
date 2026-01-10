@@ -65,8 +65,11 @@ func (r *Repository) GetChangedFiles() ([]string, error) {
 	return changes, nil
 }
 
-// GetGitStatus returns the git status of the repository.
-func (r *Repository) GetGitStatus() (git.Status, error) { return r.worktree.Status() }
+// GitStatus returns the git status of the repository.
+func (r *Repository) GitStatus() (git.Status, error) { return r.worktree.Status() }
+
+// GitReset performs a git reset in the repository.
+func (r *Repository) GitReset() error { return r.worktree.Reset(&git.ResetOptions{}) }
 
 // ExecCommand runs a command in the repository's root directory.
 // It returns the combined stdout + stderr as a string.
