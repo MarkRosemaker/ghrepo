@@ -33,7 +33,7 @@ type Repository struct {
 	s             *Service
 }
 
-func (r Repository) String() string { return fmt.Sprintf("%s/%s", r.owner, r.name) }
+func (r *Repository) String() string { return fmt.Sprintf("%s/%s", r.owner, r.name) }
 
 // HasChanges returns true if there are any unstaged, staged, or untracked changes.
 // It returns false only if the working tree is completely clean.
