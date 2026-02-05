@@ -175,7 +175,7 @@ func (s *Service) PrefetchUserRepositories(ctx context.Context, user string) err
 			return err
 		}
 
-		s.addRepos(org, repos)
+		s.addRepos(user, repos)
 		page = resp.NextPage
 	}
 
