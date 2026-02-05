@@ -1,11 +1,9 @@
 package ghrepo
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
-	"os/exec"
 	"reflect"
 	"slices"
 	"strings"
@@ -70,27 +68,6 @@ func (r *Repository) GitStatus() (git.Status, error) { return r.worktree.Status(
 
 // GitReset performs a git reset in the repository.
 func (r *Repository) GitReset() error { return r.worktree.Reset(&git.ResetOptions{}) }
-
-// ExecCommand runs a command in the repository's root directory.
-// It returns the combined stdout + stderr as a string.
-// The command name and arguments are passed separately (like exec.Command).
-func (r *Repository) ExecCommand(ctx context.Context, name string, args ...string) ([]byte, error) {
-	cmd := exec.CommandContext(ctx, name, args...)
-	cmd.Dir = r.path
-
-	out, err := cmd.CombinedOutput()
-	if err == nil {
-		return out, nil
-	}
-
-	// Include command for better debugging
-	cmdStr := strings.Join(append([]string{name}, args...), " ")
-	if out = bytes.TrimSpace(out); len(out) > 0 {
-		return nil, fmt.Errorf("command %q failed:\n%s\n%w", cmdStr, string(out), err)
-	}
-
-	return nil, fmt.Errorf("command %q failed: %w", cmdStr, err)
-}
 
 // Checkout checks out the specified branch.
 // func (r *Repository) Checkout(branch string) error {
