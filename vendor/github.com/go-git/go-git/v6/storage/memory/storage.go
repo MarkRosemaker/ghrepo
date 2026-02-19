@@ -46,7 +46,6 @@ func NewStorage(o ...StorageOption) *Storage {
 		ConfigStorage:    ConfigStorage{},
 		ShallowStorage:   ShallowStorage{},
 		ObjectStorage: ObjectStorage{
-			oh:      plumbing.FromObjectFormat(opts.objectFormat),
 			Objects: make(map[plumbing.Hash]plumbing.EncodedObject),
 			Commits: make(map[plumbing.Hash]plumbing.EncodedObject),
 			Trees:   make(map[plumbing.Hash]plumbing.EncodedObject),
@@ -56,13 +55,67 @@ func NewStorage(o ...StorageOption) *Storage {
 		ModuleStorage: make(ModuleStorage),
 	}
 
-	if opts.objectFormat == formatcfg.SHA256 {
-		cfg, _ := s.Config() // Config() never returns an error.
+	if opts.objectFormat != formatcfg.UnsetObjectFormat {
+		cfg, _ := s.Config()
 		cfg.Extensions.ObjectFormat = opts.objectFormat
 		cfg.Core.RepositoryFormatVersion = formatcfg.Version1
+		s.oh = plumbing.FromObjectFormat(opts.objectFormat)
+	} else {
+		s.oh = plumbing.FromObjectFormat(formatcfg.DefaultObjectFormat)
 	}
 
 	return s
+}
+
+func (s *Storage) ObjectFormat() formatcfg.ObjectFormat {
+	cfg, _ := s.Config()
+
+	return cfg.Extensions.ObjectFormat
+}
+
+func (s *Storage) SetObjectFormat(of formatcfg.ObjectFormat) error {
+	switch of {
+	case formatcfg.SHA1, formatcfg.SHA256:
+	default:
+		return fmt.Errorf("invalid object format: %s", of)
+	}
+
+	// Presently, storage only supports a single object format at a
+	// time. Changing the format of an existing (and populated) object
+	// storage is yet to be supported.
+	if len(s.Blobs) > 0 ||
+		len(s.Commits) > 0 ||
+		len(s.Objects) > 0 ||
+		len(s.Tags) > 0 ||
+		len(s.Trees) > 0 {
+		return errors.New("cannot change object format of existing object storage")
+	}
+
+	if s.options.objectFormat == of {
+		return nil
+	}
+
+	cfg, _ := s.Config()
+	cfg.Extensions.ObjectFormat = of
+	cfg.Core.RepositoryFormatVersion = formatcfg.Version1
+	s.options.objectFormat = of
+	s.oh = plumbing.FromObjectFormat(of)
+	return nil
+}
+
+// SupportsExtension checks whether the Storer supports the given
+// Git extension defined by name.
+func (s *Storage) SupportsExtension(name, value string) bool {
+	if name != "objectformat" {
+		return false
+	}
+
+	switch value {
+	case "sha1", "sha256", "":
+		return true
+	default:
+		return false
+	}
 }
 
 // ConfigStorage implements config.ConfigStorer for in-memory storage.
