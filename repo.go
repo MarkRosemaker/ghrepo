@@ -238,8 +238,8 @@ func (r *Repository) Edit(ctx context.Context, update *github.Repository) error 
 }
 
 func hasChanges(initial, update *github.Repository) bool {
-	uv := reflect.ValueOf(update)
-	iv := reflect.ValueOf(initial)
+	uv := reflect.Indirect(reflect.ValueOf(update))
+	iv := reflect.Indirect(reflect.ValueOf(initial))
 
 	for i := 0; i < uv.NumField(); i++ {
 		uField := uv.Field(i)
