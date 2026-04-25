@@ -96,7 +96,7 @@ func (r *Repository) CheckoutDefault() error {
 // Pull incorporates changes from a remote repository into the current branch.
 func (r *Repository) Pull(ctx context.Context) error {
 	if err := r.worktree.PullContext(ctx, &git.PullOptions{
-		Auth: r.s.gitAuth,
+		ClientOptions: r.s.gitOpts,
 	}); err == nil || errors.Is(err, git.NoErrAlreadyUpToDate) {
 		return nil
 	} else {
@@ -184,8 +184,8 @@ func (r *Repository) CommitAll(msg string) error {
 // Push pushes to the default remote.
 func (r *Repository) Push(ctx context.Context) error {
 	if err := r.gitrepo.PushContext(ctx, &git.PushOptions{
-		RemoteURL: fmt.Sprintf("https://github.com/%s/%s.git", r.owner, r.name),
-		Auth:      r.s.gitAuth,
+		RemoteURL:     fmt.Sprintf("https://github.com/%s/%s.git", r.owner, r.name),
+		ClientOptions: r.s.gitOpts,
 	}); err != nil && !errors.Is(err, git.NoErrAlreadyUpToDate) {
 		return fmt.Errorf("push failed: %w", err)
 	}

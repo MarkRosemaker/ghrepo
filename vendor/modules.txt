@@ -8,8 +8,8 @@ github.com/Microsoft/go-winio/internal/fs
 github.com/Microsoft/go-winio/internal/socket
 github.com/Microsoft/go-winio/internal/stringbuffer
 github.com/Microsoft/go-winio/pkg/guid
-# github.com/ProtonMail/go-crypto v1.3.0
-## explicit; go 1.22.0
+# github.com/ProtonMail/go-crypto v1.4.1
+## explicit; go 1.23.0
 github.com/ProtonMail/go-crypto/bitcurves
 github.com/ProtonMail/go-crypto/brainpool
 github.com/ProtonMail/go-crypto/eax
@@ -64,16 +64,16 @@ github.com/go-git/gcfg/v2
 github.com/go-git/gcfg/v2/scanner
 github.com/go-git/gcfg/v2/token
 github.com/go-git/gcfg/v2/types
-# github.com/go-git/go-billy/v6 v6.0.0-20260209124918-37866f83c2d3
-## explicit; go 1.24.0
+# github.com/go-git/go-billy/v6 v6.0.0-20260424211911-732291493fb8
+## explicit; go 1.25.0
 github.com/go-git/go-billy/v6
 github.com/go-git/go-billy/v6/helper/chroot
 github.com/go-git/go-billy/v6/helper/polyfill
 github.com/go-git/go-billy/v6/memfs
 github.com/go-git/go-billy/v6/osfs
 github.com/go-git/go-billy/v6/util
-# github.com/go-git/go-git/v6 v6.0.0-20260217223433-8b943fe3eb84
-## explicit; go 1.24.0
+# github.com/go-git/go-git/v6 v6.0.0-alpha.2
+## explicit; go 1.25.0
 github.com/go-git/go-git/v6
 github.com/go-git/go-git/v6/config
 github.com/go-git/go-git/v6/internal/pathutil
@@ -83,6 +83,7 @@ github.com/go-git/go-git/v6/internal/revision
 github.com/go-git/go-git/v6/internal/url
 github.com/go-git/go-git/v6/plumbing
 github.com/go-git/go-git/v6/plumbing/cache
+github.com/go-git/go-git/v6/plumbing/client
 github.com/go-git/go-git/v6/plumbing/color
 github.com/go-git/go-git/v6/plumbing/filemode
 github.com/go-git/go-git/v6/plumbing/format/config
@@ -94,6 +95,7 @@ github.com/go-git/go-git/v6/plumbing/format/objfile
 github.com/go-git/go-git/v6/plumbing/format/packfile
 github.com/go-git/go-git/v6/plumbing/format/packfile/util
 github.com/go-git/go-git/v6/plumbing/format/pktline
+github.com/go-git/go-git/v6/plumbing/format/reflog
 github.com/go-git/go-git/v6/plumbing/format/revfile
 github.com/go-git/go-git/v6/plumbing/hash
 github.com/go-git/go-git/v6/plumbing/object
@@ -125,10 +127,9 @@ github.com/go-git/go-git/v6/utils/merkletrie/internal/frame
 github.com/go-git/go-git/v6/utils/merkletrie/noder
 github.com/go-git/go-git/v6/utils/sync
 github.com/go-git/go-git/v6/utils/trace
+github.com/go-git/go-git/v6/x/plugin
+github.com/go-git/go-git/v6/x/plugin/config
 github.com/go-git/go-git/v6/x/storage
-# github.com/golang/groupcache v0.0.0-20241129210726-2c02b8208cf8
-## explicit; go 1.20
-github.com/golang/groupcache/lru
 # github.com/google/go-github/v80 v80.0.0
 ## explicit; go 1.24.0
 github.com/google/go-github/v80/github
@@ -154,8 +155,8 @@ github.com/sergi/go-diff/diffmatchpatch
 github.com/spf13/afero
 github.com/spf13/afero/internal/common
 github.com/spf13/afero/mem
-# golang.org/x/crypto v0.48.0
-## explicit; go 1.24.0
+# golang.org/x/crypto v0.50.0
+## explicit; go 1.25.0
 golang.org/x/crypto/argon2
 golang.org/x/crypto/blake2b
 golang.org/x/crypto/blowfish
@@ -172,21 +173,24 @@ golang.org/x/crypto/ssh
 golang.org/x/crypto/ssh/agent
 golang.org/x/crypto/ssh/internal/bcrypt_pbkdf
 golang.org/x/crypto/ssh/knownhosts
-# golang.org/x/net v0.50.0
-## explicit; go 1.24.0
+# golang.org/x/net v0.53.0
+## explicit; go 1.25.0
 golang.org/x/net/internal/socks
 golang.org/x/net/proxy
 # golang.org/x/oauth2 v0.35.0
 ## explicit; go 1.24.0
 golang.org/x/oauth2
 golang.org/x/oauth2/internal
-# golang.org/x/sys v0.41.0
-## explicit; go 1.24.0
+# golang.org/x/sync v0.20.0
+## explicit; go 1.25.0
+golang.org/x/sync/errgroup
+# golang.org/x/sys v0.43.0
+## explicit; go 1.25.0
 golang.org/x/sys/cpu
 golang.org/x/sys/unix
 golang.org/x/sys/windows
-# golang.org/x/text v0.34.0
-## explicit; go 1.24.0
+# golang.org/x/text v0.36.0
+## explicit; go 1.25.0
 golang.org/x/text/runes
 golang.org/x/text/transform
 golang.org/x/text/unicode/norm
