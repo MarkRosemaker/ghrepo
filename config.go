@@ -17,7 +17,7 @@ var globalConfig = func() *config.Config {
 	return c
 }()
 
-var initOpts = func() []git.InitOption {
+var globalInitOpts = func() []git.InitOption {
 	opts := []git.InitOption{}
 
 	if globalConfig.Init.DefaultBranch != "" {

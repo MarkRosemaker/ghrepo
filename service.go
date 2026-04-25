@@ -83,6 +83,13 @@ func (s *Service) NewRepository(ctx context.Context, owner, name string, opts ..
 			return nil, fmt.Errorf("failed to open git repo at %s: %w", path, err)
 		}
 
+		initOpts := globalInitOpts
+		if defaultBranch := r.github.GetDefaultBranch(); defaultBranch != "" {
+			initOpts = append(initOpts, git.WithDefaultBranch(
+				plumbing.NewBranchReferenceName(defaultBranch),
+			))
+		}
+
 		r.gitrepo, err = git.PlainInit(path, false, initOpts...)
 		if err != nil {
 			return nil, fmt.Errorf("failed to init git repo at %s: %w", path, err)
