@@ -9,6 +9,7 @@ type Option func(*repoConfig)
 type repoConfig struct {
 	baseDir        string
 	mkdirAll       bool
+	cloneGit       bool
 	initGit        bool
 	createRemote   bool
 	onGithub       *github.Repository
@@ -37,6 +38,9 @@ func WithGithubRepo(r *github.Repository) Option {
 
 // MakeDirAll instructs the initializer to create the repository directory, if it does not exists.
 func MakeDirAll(o *repoConfig) { o.mkdirAll = true }
+
+// CloneGit instructs the initializer to clone git in the repository directory, if it does not exist.
+func CloneGit(o *repoConfig) { o.cloneGit = true }
 
 // InitGit instructs the initializer to initialize git in the repository directory, if it was not initialized.
 func InitGit(o *repoConfig) { o.initGit = true }

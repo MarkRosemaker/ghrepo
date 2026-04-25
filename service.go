@@ -82,20 +82,31 @@ func (s *Service) NewRepository(ctx context.Context, owner, name string, opts ..
 	var err error
 	r.gitrepo, err = git.PlainOpen(path)
 	if err != nil {
-		if !cfg.initGit || !errors.Is(err, git.ErrRepositoryNotExists) {
+		if (!cfg.cloneGit && !cfg.initGit) || !errors.Is(err, git.ErrRepositoryNotExists) {
 			return nil, fmt.Errorf("failed to open git repo at %s: %w", path, err)
 		}
 
-		initOpts := globalInitOpts
-		if defaultBranch := r.github.GetDefaultBranch(); defaultBranch != "" {
-			initOpts = append(initOpts, git.WithDefaultBranch(
-				plumbing.NewBranchReferenceName(defaultBranch),
-			))
-		}
+		if cfg.cloneGit {
+			r.gitrepo, err = git.PlainCloneContext(ctx, path, &git.CloneOptions{
+				URL:           fmt.Sprintf("https://github.com/%s/%s.git", owner, name),
+				ClientOptions: s.gitOpts,
+				Progress:      os.Stdout,
+			})
+			if err != nil {
+				return nil, err
+			}
+		} else if cfg.initGit {
+			initOpts := globalInitOpts
+			if defaultBranch := r.github.GetDefaultBranch(); defaultBranch != "" {
+				initOpts = append(initOpts, git.WithDefaultBranch(
+					plumbing.NewBranchReferenceName(defaultBranch),
+				))
+			}
 
-		r.gitrepo, err = git.PlainInit(path, false, initOpts...)
-		if err != nil {
-			return nil, fmt.Errorf("failed to init git repo at %s: %w", path, err)
+			r.gitrepo, err = git.PlainInit(path, false, initOpts...)
+			if err != nil {
+				return nil, fmt.Errorf("failed to init git repo at %s: %w", path, err)
+			}
 		}
 	}
 
@@ -107,7 +118,7 @@ func (s *Service) NewRepository(ctx context.Context, owner, name string, opts ..
 
 	r.defaultBranch, err = getDefaultBranch(r.gitrepo)
 	if err != nil {
-		if !cfg.initGit || !errors.Is(err, errNoDefaultBranch) {
+		if !cfg.cloneGit || !errors.Is(err, errNoDefaultBranch) {
 			return nil, err
 		}
 
