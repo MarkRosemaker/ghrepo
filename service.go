@@ -96,7 +96,7 @@ func (s *Service) NewRepository(ctx context.Context, owner, name string, opts ..
 				return nil, err
 			}
 		} else if cfg.initGit {
-			initOpts := globalInitOpts
+			initOpts := []git.InitOption{}
 			if defaultBranch := r.github.GetDefaultBranch(); defaultBranch != "" {
 				initOpts = append(initOpts, git.WithDefaultBranch(
 					plumbing.NewBranchReferenceName(defaultBranch),

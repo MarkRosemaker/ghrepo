@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"log"
 	"mime"
 	"net/http"
 	"os"
@@ -41,6 +42,12 @@ func (r *Repository) CreateRelease(ctx context.Context, release *github.Reposito
 	return rel, err
 }
 
+func closeAndLog(closer io.Closer, name string) {
+	if err := closer.Close(); err != nil {
+		log.Printf("warning: failed to close %s: %v", name, err)
+	}
+}
+
 // UploadReleaseBinary zips a binary file and uploads it as a release asset to a GitHub release.
 // It also computes a SHA-256 checksum during the upload and uploads a separate checksum file.
 //
@@ -53,7 +60,7 @@ func (r *Repository) UploadReleaseBinary(ctx context.Context, relID int,
 	if err != nil {
 		return fmt.Errorf("opening file: %w", err)
 	}
-	defer src.Close()
+	defer closeAndLog(src, path)
 
 	// Create a temporary zip file containing the binary.
 	// This gives us the exact size of the compressed asset for the upload request.
@@ -61,13 +68,13 @@ func (r *Repository) UploadReleaseBinary(ctx context.Context, relID int,
 	if err != nil {
 		return fmt.Errorf("zipping binary: %w", err)
 	}
-	defer os.Remove(tmpPath)
+	defer os.Remove(tmpPath) //nolint:errcheck
 
 	fi, err := os.Open(tmpPath)
 	if err != nil {
 		return fmt.Errorf("opening temporary zip: %w", err)
 	}
-	defer fi.Close()
+	defer closeAndLog(fi, tmpPath)
 
 	// Get file info to know the exact size (required by GitHub API).
 	stat, err := fi.Stat()
@@ -105,12 +112,13 @@ func (r *Repository) UploadReleaseBinary(ctx context.Context, relID int,
 // zipBinary creates a temporary zip file containing a single binary entry.
 // Returns the path to the temporary zip file.
 func (r *Repository) zipBinary(fi io.Reader, info fs.FileInfo, suffix string) (string, error) {
+	name := r.name + ".zip"
 	// Create a temporary file for the zip (pattern ensures unique name).
-	tmp, err := os.CreateTemp("", r.name+".zip")
+	tmp, err := os.CreateTemp("", name)
 	if err != nil {
 		return "", fmt.Errorf("creating temp zip file: %w", err)
 	}
-	defer tmp.Close()
+	defer closeAndLog(tmp, name)
 
 	// Create a zip header from the original file's metadata.
 	fh, err := zip.FileInfoHeader(info)
@@ -127,7 +135,7 @@ func (r *Repository) zipBinary(fi io.Reader, info fs.FileInfo, suffix string) (s
 
 	// Initialize zip writer.
 	zw := zip.NewWriter(tmp)
-	defer zw.Close()
+	defer closeAndLog(zw, "zip writer")
 
 	// Create the single entry in the zip.
 	h, err := zw.CreateHeader(fh)
