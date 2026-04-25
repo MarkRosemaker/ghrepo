@@ -7,13 +7,13 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/go-git/go-git/v6/config"
 	"github.com/go-git/go-git/v6/plumbing"
-	cfgformat "github.com/go-git/go-git/v6/plumbing/format/config"
+	"github.com/go-git/go-git/v6/plumbing/format/config"
 	"github.com/go-git/go-git/v6/plumbing/hash"
 	"github.com/go-git/go-git/v6/plumbing/storer"
 	"github.com/go-git/go-git/v6/utils/binary"
 	"github.com/go-git/go-git/v6/utils/ioutil"
+	xstorage "github.com/go-git/go-git/v6/x/storage"
 )
 
 // Encoder gets the data from the storage and write it into the writer in PACK
@@ -31,16 +31,8 @@ type Encoder struct {
 // EncodedObjectStorer. By default deltas used to generate the packfile will be
 // OFSDeltaObject. To use Reference deltas, set useRefDeltas to true.
 func NewEncoder(w io.Writer, s storer.EncodedObjectStorer, useRefDeltas bool) *Encoder {
-	var of cfgformat.ObjectFormat
-	if c, ok := s.(config.ConfigStorer); ok {
-		cfg, err := c.Config()
-		if err == nil {
-			of = cfg.Extensions.ObjectFormat
-		}
-	}
-
 	var h hash.Hash
-	if of == cfgformat.SHA256 {
+	if getter, ok := s.(xstorage.ObjectFormatGetter); ok && getter.ObjectFormat() == config.SHA256 {
 		h = hash.New(crypto.SHA256)
 	} else {
 		h = hash.New(crypto.SHA1)

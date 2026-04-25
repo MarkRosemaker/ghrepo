@@ -1,6 +1,7 @@
 package git
 
 import (
+	"bytes"
 	"context"
 	"encoding/hex"
 	"errors"
@@ -12,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ProtonMail/go-crypto/openpgp"
 	"github.com/go-git/go-billy/v6"
 	"github.com/go-git/go-billy/v6/osfs"
 
@@ -25,13 +27,11 @@ import (
 	"github.com/go-git/go-git/v6/plumbing/format/packfile"
 	"github.com/go-git/go-git/v6/plumbing/object"
 	"github.com/go-git/go-git/v6/plumbing/storer"
-	"github.com/go-git/go-git/v6/plumbing/transport"
 	"github.com/go-git/go-git/v6/storage"
 	"github.com/go-git/go-git/v6/storage/filesystem"
 	"github.com/go-git/go-git/v6/storage/filesystem/dotgit"
 	"github.com/go-git/go-git/v6/utils/ioutil"
 	"github.com/go-git/go-git/v6/utils/trace"
-	"github.com/go-git/go-git/v6/x/plugin"
 )
 
 // GitDirName this is a special folder where all the git stuff is.
@@ -138,13 +138,6 @@ func withPartialInit() InitOption {
 // The worktree Filesystem is optional, if nil a bare repository is created. If
 // the given storer is not empty ErrTargetDirNotEmpty is returned
 func Init(s storage.Storer, opts ...InitOption) (*Repository, error) {
-	if trace.Performance.Enabled() {
-		start := time.Now()
-		defer func() {
-			trace.Performance.Printf("performance: %.9f s: init", time.Since(start).Seconds())
-		}()
-	}
-
 	options := newInitOptions()
 	for _, oFn := range opts {
 		if oFn != nil {
@@ -261,13 +254,6 @@ func setConfigWorktree(r *Repository, worktree, storage billy.Filesystem) error 
 // repository is a normal one (not bare) and worktree is nil the err
 // ErrWorktreeNotProvided is returned
 func Open(s storage.Storer, worktree billy.Filesystem) (*Repository, error) {
-	if trace.Performance.Enabled() {
-		start := time.Now()
-		defer func() {
-			trace.Performance.Printf("performance: %.9f s: open", time.Since(start).Seconds())
-		}()
-	}
-
 	_, err := s.Reference(plumbing.HEAD)
 	if err == plumbing.ErrReferenceNotFound {
 		return nil, ErrRepositoryNotExists
@@ -303,6 +289,15 @@ func Clone(s storage.Storer, worktree billy.Filesystem, o *CloneOptions) (*Repos
 func CloneContext(
 	ctx context.Context, s storage.Storer, worktree billy.Filesystem, o *CloneOptions,
 ) (*Repository, error) {
+	start := time.Now()
+	defer func() {
+		url := ""
+		if o != nil {
+			url = o.URL
+		}
+		trace.Performance.Printf("performance: %.9f s: git command: git clone %s", time.Since(start).Seconds(), url)
+	}()
+
 	r, err := Init(s, withPartialInit())
 	if err != nil {
 		return nil, err
@@ -320,13 +315,6 @@ func CloneContext(
 // if the repository will have worktree (non-bare) or not (bare), if the path
 // is not empty ErrTargetDirNotEmpty is returned.
 func PlainInit(path string, isBare bool, options ...InitOption) (*Repository, error) {
-	if trace.Performance.Enabled() {
-		start := time.Now()
-		defer func() {
-			trace.Performance.Printf("performance: %.9f s: plain-init", time.Since(start).Seconds())
-		}()
-	}
-
 	var wt, dot billy.Filesystem
 	var initFn func(s *filesystem.Storage) (*Repository, error)
 
@@ -353,8 +341,7 @@ func PlainInit(path string, isBare bool, options ...InitOption) (*Repository, er
 		wt = osfs.New(path, osfs.WithBoundOS())
 		dot, _ = wt.Chroot(GitDirName)
 		initFn = func(s *filesystem.Storage) (*Repository, error) {
-			oo := make([]InitOption, 0, 1+len(options))
-			oo = append(oo, WithWorkTree(wt))
+			oo := []InitOption{WithWorkTree(wt)}
 			oo = append(oo, options...)
 			return Init(s, oo...)
 		}
@@ -414,17 +401,13 @@ func PlainOpen(path string) (*Repository, error) {
 // PlainOpenWithOptions opens a git repository from the given path with specific
 // options. See PlainOpen for more info.
 func PlainOpenWithOptions(path string, o *PlainOpenOptions) (*Repository, error) {
-	if o == nil {
-		o = &PlainOpenOptions{}
-	}
-
 	dot, wt, err := dotGitToOSFilesystems(path, o.DetectDotGit)
 	if err != nil {
 		return nil, err
 	}
 
 	if _, err := dot.Stat(""); err != nil {
-		if errors.Is(err, os.ErrNotExist) {
+		if os.IsNotExist(err) {
 			return nil, ErrRepositoryNotExists
 		}
 
@@ -433,11 +416,15 @@ func PlainOpenWithOptions(path string, o *PlainOpenOptions) (*Repository, error)
 
 	var repositoryFs billy.Filesystem
 
-	dotGitCommon, err := dotGitCommonDirectory(dot)
-	if err != nil {
-		return nil, err
+	if o.EnableDotGitCommonDir {
+		dotGitCommon, err := dotGitCommonDirectory(dot)
+		if err != nil {
+			return nil, err
+		}
+		repositoryFs = dotgit.NewRepositoryFilesystem(dot, dotGitCommon)
+	} else {
+		repositoryFs = dot
 	}
-	repositoryFs = dotgit.NewRepositoryFilesystem(dot, dotGitCommon)
 
 	s := filesystem.NewStorage(repositoryFs, cache.NewObjectLRUDefault())
 
@@ -460,7 +447,7 @@ func dotGitToOSFilesystems(path string, detect bool) (dot, wt billy.Filesystem, 
 		fs = osfs.New(path, osfs.WithBoundOS())
 
 		pathinfo, err := fs.Stat("/")
-		if !errors.Is(err, os.ErrNotExist) {
+		if !os.IsNotExist(err) {
 			if pathinfo == nil {
 				return nil, nil, err
 			}
@@ -474,7 +461,7 @@ func dotGitToOSFilesystems(path string, detect bool) (dot, wt billy.Filesystem, 
 			// no error; stop
 			break
 		}
-		if !errors.Is(err, os.ErrNotExist) {
+		if !os.IsNotExist(err) {
 			// unknown error; stop
 			return nil, nil, err
 		}
@@ -533,7 +520,7 @@ func dotGitFileToOSFilesystem(path string, fs billy.Filesystem) (bfs billy.Files
 
 func dotGitCommonDirectory(fs billy.Filesystem) (commonDir billy.Filesystem, err error) {
 	f, err := fs.Open("commondir")
-	if errors.Is(err, os.ErrNotExist) {
+	if os.IsNotExist(err) {
 		return nil, nil
 	}
 	if err != nil {
@@ -553,7 +540,7 @@ func dotGitCommonDirectory(fs billy.Filesystem) (commonDir billy.Filesystem, err
 			commonDir = osfs.New(filepath.Join(fs.Root(), path), osfs.WithBoundOS())
 		}
 		if _, err := commonDir.Stat(""); err != nil {
-			if errors.Is(err, os.ErrNotExist) {
+			if os.IsNotExist(err) {
 				return nil, ErrRepositoryIncomplete
 			}
 
@@ -586,43 +573,25 @@ func PlainCloneContext(ctx context.Context, path string, o *CloneOptions) (*Repo
 	if !empty {
 		return nil, fmt.Errorf("%w %s", ErrTargetDirNotEmpty, path)
 	}
+	start := time.Now()
+	defer func() {
+		url := ""
+		if o != nil {
+			url = o.URL
+		}
+		trace.Performance.Printf("performance: %.9f s: git command: git clone %s", time.Since(start).Seconds(), url)
+	}()
 
 	isBare := o.Bare
 	if o.Mirror {
 		isBare = true
 	}
-	// Record whether the directory existed before we touched it so we can
-	// roll back correctly on failure, matching the behaviour of `git clone`:
-	//   - directory didn't exist → remove it entirely on failure
-	//   - directory already existed (empty) → remove only content we added
-	_, preErr := os.Stat(path)
-	dirPreexisted := !os.IsNotExist(preErr)
-
-	var initOptions []InitOption
-	if !o.AllowEmptyRepo {
-		initOptions = append(initOptions, withPartialInit())
-	}
-
-	r, err := PlainInit(path, isBare, initOptions...)
+	r, err := PlainInit(path, isBare, withPartialInit())
 	if err != nil {
 		return nil, err
 	}
 
-	if err := r.clone(ctx, o); err != nil {
-		if o.AllowEmptyRepo && errors.Is(err, transport.ErrEmptyRemoteRepository) {
-			return r, nil
-		}
-		if dirPreexisted {
-			// Restore the directory to its original empty state.
-			_ = os.RemoveAll(filepath.Join(path, GitDirName))
-		} else {
-			// We created the directory; remove it entirely.
-			_ = os.RemoveAll(path)
-		}
-		return r, err
-	}
-
-	return r, nil
+	return r, r.clone(ctx, o)
 }
 
 func newRepository(s storage.Storer, worktree billy.Filesystem) *Repository {
@@ -636,7 +605,7 @@ func newRepository(s storage.Storer, worktree billy.Filesystem) *Repository {
 func checkTargetDirIsEmpty(path string) (empty bool, err error) {
 	fi, err := osfs.Default.Stat(path)
 	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
+		if os.IsNotExist(err) {
 			return true, nil
 		}
 
@@ -659,16 +628,6 @@ func checkTargetDirIsEmpty(path string) (empty bool, err error) {
 	return false, nil
 }
 
-// Close releases any open resources held by the repository. It must be called
-// when the repository is no longer needed. It is safe to call Close on a
-// repository backed by memory storage, where it is a no-op.
-func (r *Repository) Close() error {
-	if c, ok := r.Storer.(io.Closer); ok {
-		return c.Close()
-	}
-	return nil
-}
-
 // Config return the repository config. In a filesystem backed repository this
 // means read the `.git/config`.
 func (r *Repository) Config() (*config.Config, error) {
@@ -689,35 +648,10 @@ func (r *Repository) SetConfig(cfg *config.Config) error {
 func (r *Repository) ConfigScoped(scope config.Scope) (*config.Config, error) {
 	// TODO(mcuadros): v6, add this as ConfigOptions.Scoped
 
-	local, err := r.Storer.Config()
-	if err != nil {
-		return nil, err
-	}
-
-	// LocalScope only needs the repository's own config; no plugin required.
-	if scope <= config.LocalScope {
-		cfg := config.Merge(config.NewConfig(), config.NewConfig(), local)
-		return &cfg, nil
-	}
-
-	// Use Has before Get so the key is not frozen when no plugin is
-	// registered, allowing callers to register one later.
-	if !plugin.Has(plugin.ConfigLoader()) {
-		return nil, errors.New("no config loader registered")
-	}
-
-	src, err := plugin.Get(plugin.ConfigLoader())
-	if err != nil {
-		return nil, err
-	}
-
+	var err error
 	system := config.NewConfig()
 	if scope >= config.SystemScope {
-		ss, err := src.Load(config.SystemScope)
-		if err != nil {
-			return nil, err
-		}
-		system, err = ss.Config()
+		system, err = config.LoadConfig(config.SystemScope)
 		if err != nil {
 			return nil, err
 		}
@@ -725,14 +659,15 @@ func (r *Repository) ConfigScoped(scope config.Scope) (*config.Config, error) {
 
 	global := config.NewConfig()
 	if scope >= config.GlobalScope {
-		gs, err := src.Load(config.GlobalScope)
+		global, err = config.LoadConfig(config.GlobalScope)
 		if err != nil {
 			return nil, err
 		}
-		global, err = gs.Config()
-		if err != nil {
-			return nil, err
-		}
+	}
+
+	local, err := r.Storer.Config()
+	if err != nil {
+		return nil, err
 	}
 
 	cfg := config.Merge(system, global, local)
@@ -929,25 +864,8 @@ func (r *Repository) createTagObject(name string, hash plumbing.Hash, opts *Crea
 		Target:     hash,
 	}
 
-	signer := opts.Signer
-	if signer == nil {
-		cfg, err := r.ConfigScoped(config.SystemScope)
-		if err == nil && cfg != nil && cfg.Tag.GpgSign.IsTrue() {
-			// Use Has before Get so the key is not frozen when no plugin is
-			// registered, allowing callers to register one later.
-			if !plugin.Has(plugin.ObjectSigner()) {
-				return plumbing.ZeroHash, fmt.Errorf("cannot auto-sign tag: disable tag.gpgSign or register an ObjectSigner plugin")
-			}
-
-			signer, err = plugin.Get(plugin.ObjectSigner())
-			if err != nil {
-				return plumbing.ZeroHash, fmt.Errorf("get object signer: %w", err)
-			}
-		}
-	}
-
-	if signer != nil {
-		sig, err := r.buildTagSignature(tag, signer)
+	if opts.SignKey != nil {
+		sig, err := r.buildTagSignature(tag, opts.SignKey)
 		if err != nil {
 			return plumbing.ZeroHash, err
 		}
@@ -963,7 +881,7 @@ func (r *Repository) createTagObject(name string, hash plumbing.Hash, opts *Crea
 	return r.Storer.SetEncodedObject(obj)
 }
 
-func (r *Repository) buildTagSignature(tag *object.Tag, signer Signer) (string, error) {
+func (r *Repository) buildTagSignature(tag *object.Tag, signKey *openpgp.Entity) (string, error) {
 	encoded := &plumbing.MemoryObject{}
 	if err := tag.Encode(encoded); err != nil {
 		return "", err
@@ -974,12 +892,12 @@ func (r *Repository) buildTagSignature(tag *object.Tag, signer Signer) (string, 
 		return "", err
 	}
 
-	b, err := signer.Sign(rdr)
-	if err != nil {
+	var b bytes.Buffer
+	if err := openpgp.ArmoredDetachSign(&b, signKey, rdr, nil); err != nil {
 		return "", err
 	}
 
-	return string(b), nil
+	return b.String(), nil
 }
 
 // Tag returns a tag from the repository.
@@ -1046,17 +964,6 @@ func (r *Repository) resolveToCommitHash(h plumbing.Hash) (plumbing.Hash, error)
 
 // Clone clones a remote repository
 func (r *Repository) clone(ctx context.Context, o *CloneOptions) error {
-	if trace.Performance.Enabled() {
-		start := time.Now()
-		defer func() {
-			url := ""
-			if o != nil {
-				url = o.URL
-			}
-			trace.Performance.Printf("performance: %.9f s: git command: git clone %s", time.Since(start).Seconds(), url)
-		}()
-	}
-
 	if err := o.Validate(); err != nil {
 		return err
 	}
@@ -1301,15 +1208,14 @@ func (r *Repository) updateReferences(spec []config.RefSpec,
 		return updateReferenceStorerIfNeeded(r.Storer, head)
 	}
 
-	remoteHeadRefs := r.calculateRemoteHeadReference(spec, resolvedRef)
-	refs := make([]*plumbing.Reference, 0, 2+len(remoteHeadRefs))
-	refs = append(refs,
+	refs := []*plumbing.Reference{
 		// Create local reference for the resolved ref
 		resolvedRef,
 		// Create local symbolic HEAD
 		plumbing.NewSymbolicReference(plumbing.HEAD, resolvedRef.Name()),
-	)
-	refs = append(refs, remoteHeadRefs...)
+	}
+
+	refs = append(refs, r.calculateRemoteHeadReference(spec, resolvedRef)...)
 
 	for _, ref := range refs {
 		u, err := updateReferenceStorerIfNeeded(r.Storer, ref)
@@ -1981,13 +1887,17 @@ func (r *Repository) Merge(ref plumbing.Reference, opts MergeOptions) error {
 
 	// Ignore error as not having a shallow list is optional here.
 	shallowList, _ := r.Storer.Shallow()
+	var earliestShallow *plumbing.Hash
+	if len(shallowList) > 0 {
+		earliestShallow = &shallowList[0]
+	}
 
 	head, err := r.Head()
 	if err != nil {
 		return err
 	}
 
-	ff, err := isFastForward(r.Storer, head.Hash(), ref.Hash(), shallowList)
+	ff, err := isFastForward(r.Storer, head.Hash(), ref.Hash(), earliestShallow)
 	if err != nil {
 		return err
 	}

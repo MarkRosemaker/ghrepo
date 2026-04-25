@@ -169,7 +169,7 @@ var ctrlSeqs = regexp.MustCompile(`[\000-\037\177]`)
 func (r ReferenceName) Validate() error {
 	s := string(r)
 	if len(s) == 0 {
-		return fmt.Errorf("%w: %q", ErrInvalidReferenceName, s)
+		return ErrInvalidReferenceName
 	}
 
 	// HEAD is a special case
@@ -179,13 +179,13 @@ func (r ReferenceName) Validate() error {
 
 	// rule 7
 	if strings.HasSuffix(s, ".") {
-		return fmt.Errorf("%w: %q", ErrInvalidReferenceName, s)
+		return ErrInvalidReferenceName
 	}
 
 	// rule 2
 	parts := strings.Split(s, "/")
 	if len(parts) < 2 {
-		return fmt.Errorf("%w: %q", ErrInvalidReferenceName, s)
+		return ErrInvalidReferenceName
 	}
 
 	isBranch := r.IsBranch()
@@ -193,7 +193,7 @@ func (r ReferenceName) Validate() error {
 	for i, part := range parts {
 		// rule 6
 		if len(part) == 0 {
-			return fmt.Errorf("%w: %q", ErrInvalidReferenceName, s)
+			return ErrInvalidReferenceName
 		}
 
 		if strings.HasPrefix(part, ".") || // rule 1
@@ -204,11 +204,11 @@ func (r ReferenceName) Validate() error {
 			part == "@" || // rule 9
 			strings.Contains(part, "\\") || // rule 10
 			strings.HasSuffix(part, ".lock") { // rule 1
-			return fmt.Errorf("%w: %q", ErrInvalidReferenceName, s)
+			return ErrInvalidReferenceName
 		}
 
 		if (isBranch || isTag) && strings.HasPrefix(part, "-") && (i == 2) { // branches & tags can't start with -
-			return fmt.Errorf("%w: %q", ErrInvalidReferenceName, s)
+			return ErrInvalidReferenceName
 		}
 	}
 

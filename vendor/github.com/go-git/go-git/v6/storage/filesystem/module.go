@@ -11,7 +11,6 @@ type ModuleStorage struct {
 	dir *dotgit.DotGit
 }
 
-// Module returns the storage for the named submodule.
 func (s *ModuleStorage) Module(name string) (storage.Storer, error) {
 	fs, err := s.dir.Module(name)
 	if err != nil {

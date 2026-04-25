@@ -7,7 +7,6 @@ import (
 	"io"
 	"math"
 
-	"github.com/go-git/go-git/v6/config"
 	"github.com/go-git/go-git/v6/plumbing"
 	"github.com/go-git/go-git/v6/plumbing/format/packfile"
 	"github.com/go-git/go-git/v6/plumbing/format/pktline"
@@ -26,13 +25,6 @@ type UploadPackOptions struct {
 	GitProtocol   string
 	AdvertiseRefs bool
 	StatelessRPC  bool
-
-	// SkipDeltaCompression disables delta compression when encoding the
-	// packfile. When false, the repository pack.window configuration is used.
-	//
-	// Disabling delta compression significantly improves performance for local
-	// transfers where recomputing deltas is unnecessary.
-	SkipDeltaCompression bool
 }
 
 // UploadPack is a server command that serves the upload-pack service.
@@ -273,17 +265,8 @@ func UploadPack(
 
 	// TODO: Support shallow-file
 	// TODO: Support thin-pack
-	var packWindow uint
-	if opts.SkipDeltaCompression {
-		packWindow = 0
-	} else if cfg, cerr := st.Config(); cerr == nil && cfg != nil {
-		packWindow = cfg.Pack.Window
-	} else {
-		packWindow = config.DefaultPackWindow
-	}
-
 	e := packfile.NewEncoder(writer, st, false)
-	_, err = e.Encode(objs, packWindow)
+	_, err = e.Encode(objs, 10)
 	if err != nil {
 		return fmt.Errorf("encoding packfile: %w", err)
 	}

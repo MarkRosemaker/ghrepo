@@ -1,4 +1,3 @@
-// Package util provides low-level helpers for packfile encoding and decoding.
 package util
 
 import (
@@ -83,8 +82,8 @@ func DecodeLEB128(input []byte) (uint, []byte) {
 	return num, input[sz:]
 }
 
-// DecodeLEB128FromReader decodes a number encoded as an unsigned LEB128
-// from a byte reader and returns the decoded number.
+// DecodeLEB128 decodes a number encoded as an unsigned LEB128 at the
+// start of some binary data and returns the decoded number.
 func DecodeLEB128FromReader(input io.ByteReader) (uint, error) {
 	var num, sz uint
 	for {

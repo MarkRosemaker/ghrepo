@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"bytes"
 	"errors"
-	"fmt"
 	"io"
 	"strconv"
 	"time"
@@ -12,7 +11,6 @@ import (
 	"github.com/go-git/go-git/v6/plumbing"
 	"github.com/go-git/go-git/v6/plumbing/hash"
 	"github.com/go-git/go-git/v6/utils/binary"
-	"github.com/go-git/go-git/v6/utils/trace"
 )
 
 var (
@@ -27,14 +25,12 @@ var (
 	ErrInvalidChecksum = errors.New("index decoder: invalid checksum")
 	// ErrUnknownExtension is returned when an index extension is encountered that is considered mandatory.
 	ErrUnknownExtension = errors.New("index decoder: unknown extension")
-	// ErrMalformedIndexFile is returned when the index file contents are
-	// structurally invalid.
-	ErrMalformedIndexFile = errors.New("index decoder: malformed index file")
 )
 
 const (
 	entryHeaderLength = 42
 	entryExtended     = 0x4000
+	entryValid        = 0x8000
 	nameMask          = 0xfff
 	intentToAddMask   = 1 << 13
 	skipWorkTreeMask  = 1 << 14
@@ -46,34 +42,20 @@ type Decoder struct {
 	r         io.Reader
 	hash      hash.Hash
 	lastEntry *Entry
-	skipHash  bool
 
 	extReader *bufio.Reader
 }
 
 // NewDecoder returns a new decoder that reads from r.
-func NewDecoder(r io.Reader, h hash.Hash, opts ...Option) *Decoder {
-	var cfg options
-	for _, o := range opts {
-		o(&cfg)
-	}
-
+func NewDecoder(r io.Reader, h hash.Hash) *Decoder {
+	h.Reset()
 	buf := bufio.NewReader(r)
-	d := &Decoder{
+	return &Decoder{
 		buf:       buf,
+		r:         io.TeeReader(buf, h),
 		hash:      h,
-		skipHash:  cfg.skipHash,
 		extReader: bufio.NewReader(nil),
 	}
-
-	if d.skipHash {
-		d.r = buf
-	} else {
-		h.Reset()
-		d.r = io.TeeReader(buf, h)
-	}
-
-	return d
 }
 
 // Decode reads the whole index object from its input and stores it in the
@@ -85,14 +67,10 @@ func (d *Decoder) Decode(idx *Index) error {
 		return err
 	}
 
-	trace.Internal.Printf("index: decode version %d", idx.Version)
-
 	entryCount, err := binary.ReadUint32(d.r)
 	if err != nil {
 		return err
 	}
-
-	trace.Internal.Printf("index: decode entry count %d", entryCount)
 
 	if err := d.readEntries(idx, int(entryCount)); err != nil {
 		return err
@@ -168,55 +146,33 @@ func (d *Decoder) readEntry(idx *Index) (*Entry, error) {
 		e.SkipWorktree = extended&skipWorkTreeMask != 0
 	}
 
-	nameConsumed, err := d.readEntryName(idx, e, flags)
-	if err != nil {
+	if err := d.readEntryName(idx, e, flags); err != nil {
 		return nil, err
 	}
 
-	return e, d.padEntry(idx, e, read, nameConsumed)
+	return e, d.padEntry(idx, e, read)
 }
 
-// readEntryName reads the entry path and sets e.Name. It returns the
-// number of bytes consumed from the stream for the name portion.
-func (d *Decoder) readEntryName(idx *Index, e *Entry, flags uint16) (int, error) {
+func (d *Decoder) readEntryName(idx *Index, e *Entry, flags uint16) error {
+	var name string
+	var err error
+
 	switch idx.Version {
 	case 2, 3:
 		nameLen := flags & nameMask
-		name, consumed, err := d.doReadEntryName(nameLen)
-		if err != nil {
-			return 0, err
-		}
-		e.Name = name
-		return consumed, nil
+		name, err = d.doReadEntryName(nameLen)
 	case 4:
-		name, err := d.doReadEntryNameV4()
-		if err != nil {
-			return 0, err
-		}
-		e.Name = name
-		return 0, nil // V4 has no padding; consumed count unused
+		name, err = d.doReadEntryNameV4()
 	default:
-		return 0, ErrUnsupportedVersion
-	}
-}
-
-// doReadEntryName reads the entry path for V2/V3 indexes. It returns the
-// name, the number of bytes consumed from the stream, and any error.
-// When nameLen equals nameMask (0xFFF), the name was too long to fit in
-// the 12-bit field and the real length is found by scanning for the NUL
-// terminator — matching C Git's strlen(name) fallback in create_from_disk.
-func (d *Decoder) doReadEntryName(nameLen uint16) (string, int, error) {
-	if nameLen == nameMask {
-		name, err := binary.ReadUntil(d.r, '\x00')
-		if err != nil {
-			return "", 0, err
-		}
-		return string(name), len(name) + 1, nil // +1 for the consumed NUL delimiter
+		return ErrUnsupportedVersion
 	}
 
-	name := make([]byte, nameLen)
-	_, err := io.ReadFull(d.r, name)
-	return string(name), int(nameLen), err
+	if err != nil {
+		return err
+	}
+
+	e.Name = name
+	return nil
 }
 
 func (d *Decoder) doReadEntryNameV4() (string, error) {
@@ -227,14 +183,7 @@ func (d *Decoder) doReadEntryNameV4() (string, error) {
 
 	var base string
 	if d.lastEntry != nil {
-		if l < 0 || int(l) > len(d.lastEntry.Name) {
-			return "", fmt.Errorf("%w: invalid V4 entry name strip length %d (previous name length: %d)",
-				ErrMalformedIndexFile, l, len(d.lastEntry.Name))
-		}
 		base = d.lastEntry.Name[:len(d.lastEntry.Name)-int(l)]
-	} else if l > 0 {
-		return "", fmt.Errorf("%w: non-zero strip length %d on first V4 entry",
-			ErrMalformedIndexFile, l)
 	}
 
 	name, err := binary.ReadUntil(d.r, '\x00')
@@ -245,23 +194,24 @@ func (d *Decoder) doReadEntryNameV4() (string, error) {
 	return base + string(name), nil
 }
 
-// padEntry discards NUL padding bytes that follow each V2/V3 entry on
-// disk. nameConsumed is the number of stream bytes consumed while reading
-// the entry name (which may exceed len(e.Name) when a NUL terminator was
-// consumed for long names where the 12-bit length field overflowed).
-func (d *Decoder) padEntry(idx *Index, e *Entry, read, nameConsumed int) error {
+func (d *Decoder) doReadEntryName(nameLen uint16) (string, error) {
+	name := make([]byte, nameLen)
+	_, err := io.ReadFull(d.r, name)
+
+	return string(name), err
+}
+
+// Index entries are padded out to the next 8 byte alignment
+// for historical reasons related to how C Git read the files.
+func (d *Decoder) padEntry(idx *Index, e *Entry, read int) error {
 	if idx.Version == 4 {
 		return nil
 	}
 
 	entrySize := read + len(e.Name)
 	padLen := 8 - entrySize%8
-	padLen -= nameConsumed - len(e.Name)
-	if padLen > 0 {
-		_, err := io.CopyN(io.Discard, d.r, int64(padLen))
-		return err
-	}
-	return nil
+	_, err := io.CopyN(io.Discard, d.r, int64(padLen))
+	return err
 }
 
 func (d *Decoder) readExtensions(idx *Index) error {
@@ -277,12 +227,9 @@ func (d *Decoder) readExtensions(idx *Index) error {
 	peekLen := 4 + 4 + d.hash.Size()
 
 	for {
-		if !d.skipHash {
-			expected = d.hash.Sum(nil)
-		}
+		expected = d.hash.Sum(nil)
 		peeked, err = d.buf.Peek(peekLen)
 		if len(peeked) < peekLen {
-			trace.Internal.Printf("index: decode peeked %d bytes, less than minimum %d; done reading extensions", len(peeked), peekLen)
 			// there can't be an extension at this point, so let's bail out
 			break
 		}
@@ -296,9 +243,6 @@ func (d *Decoder) readExtensions(idx *Index) error {
 		}
 	}
 
-	if !d.skipHash {
-		trace.Internal.Printf("index: verifying checksum, expected %x", expected)
-	}
 	return d.readChecksum(expected)
 }
 
@@ -309,8 +253,6 @@ func (d *Decoder) readExtension(idx *Index) error {
 		return err
 	}
 
-	trace.Internal.Printf("index: decode extension header %s", string(header[:]))
-
 	r, err := d.getExtensionReader()
 	if err != nil {
 		return err
@@ -318,40 +260,32 @@ func (d *Decoder) readExtension(idx *Index) error {
 
 	switch {
 	case bytes.Equal(header[:], treeExtSignature):
-		trace.Internal.Printf("index: decoding tree extension")
 		idx.Cache = &Tree{}
-		extDec := &treeExtensionDecoder{r, d.hash}
-		if err := extDec.Decode(idx.Cache); err != nil {
+		d := &treeExtensionDecoder{r, d.hash}
+		if err := d.Decode(idx.Cache); err != nil {
 			return err
 		}
-		trace.Internal.Printf("index: tree extension decoded, %d entries", len(idx.Cache.Entries))
 	case bytes.Equal(header[:], resolveUndoExtSignature):
-		trace.Internal.Printf("index: decoding resolve-undo extension")
 		idx.ResolveUndo = &ResolveUndo{}
-		extDec := &resolveUndoDecoder{r, d.hash}
-		if err := extDec.Decode(idx.ResolveUndo); err != nil {
+		d := &resolveUndoDecoder{r, d.hash}
+		if err := d.Decode(idx.ResolveUndo); err != nil {
 			return err
 		}
-		trace.Internal.Printf("index: resolve-undo extension decoded, %d entries", len(idx.ResolveUndo.Entries))
 	case bytes.Equal(header[:], endOfIndexEntryExtSignature):
-		trace.Internal.Printf("index: decoding end-of-index-entry extension")
 		idx.EndOfIndexEntry = &EndOfIndexEntry{}
-		extDec := &endOfIndexEntryDecoder{r, d.hash}
-		if err := extDec.Decode(idx.EndOfIndexEntry); err != nil {
+		d := &endOfIndexEntryDecoder{r, d.hash}
+		if err := d.Decode(idx.EndOfIndexEntry); err != nil {
 			return err
 		}
-		trace.Internal.Printf("index: end-of-index-entry extension decoded, offset %d hash %s", idx.EndOfIndexEntry.Offset, idx.EndOfIndexEntry.Hash)
 	default:
 		// See https://git-scm.com/docs/index-format, which says:
 		// If the first byte is 'A'..'Z' the extension is optional and can be ignored.
 		if header[0] < 'A' || header[0] > 'Z' {
-			trace.Internal.Printf("index: unknown mandatory extension %s", string(header[:]))
 			return ErrUnknownExtension
 		}
 
-		trace.Internal.Printf("index: skipping optional unknown extension %s", string(header[:]))
-		extDec := &unknownExtensionDecoder{r}
-		if err := extDec.Decode(); err != nil {
+		d := &unknownExtensionDecoder{r}
+		if err := d.Decode(); err != nil {
 			return err
 		}
 	}
@@ -374,21 +308,13 @@ func (d *Decoder) readChecksum(expected []byte) error {
 	h.ResetBySize(d.hash.Size())
 
 	if _, err := h.ReadFrom(d.r); err != nil {
-		trace.Internal.Printf("index: checksum read error: %v", err)
 		return err
 	}
 
-	if d.skipHash {
-		trace.Internal.Printf("index: skipping checksum verification (skipHash)")
-		return nil
-	}
-
 	if h.Compare(expected) != 0 {
-		trace.Internal.Printf("index: checksum mismatch, expected %x got %s", expected, h)
 		return ErrInvalidChecksum
 	}
 
-	trace.Internal.Printf("index: checksum ok %s", h)
 	return nil
 }
 
@@ -458,27 +384,24 @@ func (d *treeExtensionDecoder) readEntry() (*TreeEntry, error) {
 		return nil, err
 	}
 
+	// An entry can be in an invalidated state and is represented by having a
+	// negative number in the entry_count field.
+	if i == -1 {
+		return nil, nil
+	}
+
 	e.Entries = i
 	trees, err := binary.ReadUntil(d.r, '\n')
 	if err != nil {
 		return nil, err
 	}
 
-	subtrees, err := strconv.Atoi(string(trees))
+	i, err = strconv.Atoi(string(trees))
 	if err != nil {
 		return nil, err
 	}
 
-	e.Trees = subtrees
-
-	// An entry can be in an invalidated state and is represented by having a
-	// negative number in the entry_count field. In this case, there is no
-	// object name and the next entry starts immediately after the newline.
-	if i < 0 {
-		trace.Internal.Printf("index: tree extension entry %q invalidated (entry count %d)", e.Path, i)
-		return nil, nil
-	}
-
+	e.Trees = i
 	e.Hash.ResetBySize(d.h.Size())
 	_, err = e.Hash.ReadFrom(d.r)
 	if err != nil {
@@ -535,7 +458,6 @@ func (d *resolveUndoDecoder) readEntry() (*ResolveUndoEntry, error) {
 		e.Stages[s] = h
 	}
 
-	trace.Internal.Printf("index: resolve-undo entry %q, %d stages", e.Path, len(e.Stages))
 	return e, nil
 }
 
@@ -579,6 +501,16 @@ type unknownExtensionDecoder struct {
 }
 
 func (d *unknownExtensionDecoder) Decode() error {
-	_, err := io.Copy(io.Discard, d.r)
-	return err
+	var buf [1024]byte
+
+	for {
+		_, err := d.r.Read(buf[:])
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }

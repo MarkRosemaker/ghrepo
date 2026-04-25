@@ -28,7 +28,6 @@ func WithScannerObservers(ob ...Observer) ParserOption {
 	}
 }
 
-// WithObjectFormat sets the object format for the parser.
 func WithObjectFormat(of config.ObjectFormat) ParserOption {
 	return func(p *Parser) {
 		if of == config.UnsetObjectFormat {

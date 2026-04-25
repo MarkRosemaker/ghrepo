@@ -27,12 +27,11 @@ import (
 	"github.com/go-git/go-git/v6/storage/filesystem"
 	"github.com/go-git/go-git/v6/storage/memory"
 	"github.com/go-git/go-git/v6/utils/ioutil"
-	"github.com/go-git/go-git/v6/utils/trace"
 )
 
 // Remote operation errors and sentinel values.
 var (
-	NoErrAlreadyUpToDate     = errors.New("already up-to-date") //nolint:staticcheck,revive // sentinel value, not an error
+	NoErrAlreadyUpToDate     = errors.New("already up-to-date") //nolint:staticcheck // sentinel value, not an error
 	ErrDeleteRefNotSupported = errors.New("server does not support delete-refs")
 	ErrForceNeeded           = errors.New("some refs were not updated")
 	ErrExactSHA1NotSupported = errors.New("server does not support exact SHA1 refspec")
@@ -92,13 +91,6 @@ func (r *Remote) Push(o *PushOptions) error {
 // operation is complete, an error is returned. The context only affects the
 // transport operations.
 func (r *Remote) PushContext(ctx context.Context, o *PushOptions) (err error) {
-	if trace.Performance.Enabled() {
-		start := time.Now()
-		defer func() {
-			trace.Performance.Printf("performance: %.9f s: git command: git push", time.Since(start).Seconds())
-		}()
-	}
-
 	if err := o.Validate(); err != nil {
 		return err
 	}
@@ -362,17 +354,6 @@ func (r *Remote) Fetch(o *FetchOptions) error {
 }
 
 func (r *Remote) fetch(ctx context.Context, o *FetchOptions) (sto storer.ReferenceStorer, err error) {
-	if trace.Performance.Enabled() {
-		start := time.Now()
-		defer func() {
-			trace.Performance.Printf("performance: %.9f s: git command: git fetch", time.Since(start).Seconds())
-		}()
-	}
-
-	if r.c == nil {
-		return nil, errors.New("cannot fetch: RemoteConfig is nil")
-	}
-
 	if o.RemoteName == "" {
 		o.RemoteName = r.c.Name
 	}
@@ -445,28 +426,6 @@ func (r *Remote) fetch(ctx context.Context, o *FetchOptions) (sto storer.Referen
 		haves, err = getHaves(localRefs, remoteRefs, r.s, o.Depth)
 		if err != nil {
 			return nil, err
-		}
-
-		// When performing a shallow fetch, exclude any shallow-boundary commits
-		// from the haves list. Shallow commits are already communicated to the
-		// server via the "shallow" packets in the upload-request. Including them
-		// in HAVE would lead the server to treat their ancestors as present on
-		// the client (because HAVE X implies the client has X and all its
-		// ancestors), which contradicts the shallow boundary and causes the
-		// server to send an empty packfile even when the client is missing
-		// objects that are ancestors of its shallow commits.
-		if len(shallows) > 0 {
-			shallowSet := make(map[plumbing.Hash]bool, len(shallows))
-			for _, h := range shallows {
-				shallowSet[h] = true
-			}
-			filtered := haves[:0]
-			for _, h := range haves {
-				if !shallowSet[h] {
-					filtered = append(filtered, h)
-				}
-			}
-			haves = filtered
 		}
 
 		req := &transport.FetchRequest{
@@ -1068,12 +1027,7 @@ func checkFastForwardUpdate(s storer.EncodedObjectStorer, remoteRefs storer.Refe
 		return fmt.Errorf("non-fast-forward update: %s", cmd.Name.String())
 	}
 
-	var shallows []plumbing.Hash
-	if ss, ok := s.(storer.ShallowStorer); ok {
-		shallows, _ = ss.Shallow()
-	}
-
-	ff, err := isFastForward(s, cmd.Old, cmd.New, shallows)
+	ff, err := isFastForward(s, cmd.Old, cmd.New, nil)
 	if err != nil {
 		return err
 	}
@@ -1085,53 +1039,29 @@ func checkFastForwardUpdate(s storer.EncodedObjectStorer, remoteRefs storer.Refe
 	return nil
 }
 
-// isFastForward reports whether newHash is a descendant of old in the commit
-// graph stored in s. shallows is the list of commits that act as boundary
-// nodes for a shallow clone; commits reachable only through those boundaries
-// are not locally available.
-//
-// When shallows are present and the ancestry of newHash cannot be fully
-// traced back to old using only local commits, we conservatively return
-// true (assume fast-forward) to avoid a false negative caused by the
-// shallow boundary. This mirrors git(1)'s behavior for shallow fetches:
-// ancestry checks are relaxed once history is truncated, at the cost of
-// not being able to prove fast-forward strictly from local data.
-func isFastForward(s storer.EncodedObjectStorer, old, newHash plumbing.Hash, shallows []plumbing.Hash) (bool, error) {
+func isFastForward(s storer.EncodedObjectStorer, old, newHash plumbing.Hash, earliestShallow *plumbing.Hash) (bool, error) {
 	c, err := object.GetCommit(s, newHash)
 	if err != nil {
 		return false, err
 	}
 
-	// Build a set of shallow commits so we can detect when the walk actually
-	// reaches a shallow boundary (as opposed to merely knowing shallows exist).
-	shallowsSet := make(map[plumbing.Hash]struct{}, len(shallows))
-	for _, sh := range shallows {
-		shallowsSet[sh] = struct{}{}
-	}
-
-	// For each known shallow commit, mark its parent hashes as boundaries so
-	// the walker never tries to load commits that are not stored locally.
-	parentsToIgnore := make([]plumbing.Hash, 0, len(shallows))
-	for _, sh := range shallows {
-		shallowCommit, err := object.GetCommit(s, sh)
+	parentsToIgnore := []plumbing.Hash{}
+	if earliestShallow != nil {
+		earliestCommit, err := object.GetCommit(s, *earliestShallow)
 		if err != nil {
-			if errors.Is(err, plumbing.ErrObjectNotFound) {
-				// Shallow marker may reference a commit we no longer have; skip.
-				continue
-			}
 			return false, err
 		}
-		parentsToIgnore = append(parentsToIgnore, shallowCommit.ParentHashes...)
+
+		parentsToIgnore = earliestCommit.ParentHashes
 	}
 
 	found := false
-	boundedByShallow := false
+	// stop iterating at the earliest shallow commit, ignoring its parents
+	// note: when pull depth is smaller than the number of new changes on the remote, this fails due to missing parents.
+	//       as far as i can tell, without the commits in-between the shallow pull and the earliest shallow, there's no
+	//       real way of telling whether it will be a fast-forward merge.
 	iter := object.NewCommitPreorderIter(c, nil, parentsToIgnore)
 	err = iter.ForEach(func(c *object.Commit) error {
-		if _, isShallow := shallowsSet[c.Hash]; isShallow {
-			// The walk reached a shallow commit; history is truncated here.
-			boundedByShallow = true
-		}
 		if c.Hash != old {
 			return nil
 		}
@@ -1139,16 +1069,7 @@ func isFastForward(s storer.EncodedObjectStorer, old, newHash plumbing.Hash, sha
 		found = true
 		return storer.ErrStop
 	})
-	if err != nil {
-		return false, err
-	}
-	if !found && boundedByShallow {
-		// The walk was bounded by shallow markers and could not reach `old`.
-		// We cannot disprove fast-forward from local data alone, so allow the
-		// update. This matches the behaviour of git(1) for shallow fetches.
-		return true, nil
-	}
-	return found, nil
+	return found, err
 }
 
 func (r *Remote) isSupportedRefSpec(refs []config.RefSpec, caps *capability.List) error {
@@ -1181,8 +1102,6 @@ func (r *Remote) updateLocalReferenceStorage(
 	isWildcard := true
 	forceNeeded := false
 
-	shallows, _ := r.s.Shallow()
-
 	for i, spec := range specs {
 		if !spec.IsWildcard() {
 			isWildcard = false
@@ -1194,17 +1113,8 @@ func (r *Remote) updateLocalReferenceStorage(
 			}
 
 			localName := spec.Dst(ref.Name())
-			// If localName doesn't start with "refs/" then treat as a branch,
-			// unless localName is itself a SHA-1/SHA-256 hash (as happens when
-			// a caller uses a bare-hash dst such as "+<hash>:<hash>"). Creating
-			// a branch named after a commit hash is always wrong and produces
-			// spurious refs that confuse ResolveRevision and other callers.
+			// If localName doesn't start with "refs/" then treat as a branch.
 			if !strings.HasPrefix(localName.String(), "refs/") {
-				if plumbing.IsHash(localName.String()) {
-					// Bare-hash dst: the intent is to fetch the object only;
-					// no local reference should be created.
-					continue
-				}
 				localName = plumbing.NewBranchReferenceName(localName.String())
 			}
 			old, _ := storer.ResolveReference(r.s, localName)
@@ -1213,7 +1123,7 @@ func (r *Remote) updateLocalReferenceStorage(
 			// If the ref exists locally as a non-tag and force is not
 			// specified, only update if the new ref is an ancestor of the old
 			if old != nil && !old.Name().IsTag() && !force && !spec.IsForceUpdate() {
-				ff, err := isFastForward(r.s, old.Hash(), newRef.Hash(), shallows)
+				ff, err := isFastForward(r.s, old.Hash(), newRef.Hash(), nil)
 				if err != nil {
 					return updated, err
 				}

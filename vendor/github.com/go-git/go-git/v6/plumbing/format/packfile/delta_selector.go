@@ -64,13 +64,15 @@ func (dw *deltaSelector) ObjectsToPack(
 	var wg sync.WaitGroup
 	var once sync.Once
 	for _, objs := range objectGroups {
-		wg.Go(func() {
+		wg.Add(1)
+		go func() {
 			if walkErr := dw.walk(objs, packWindow); walkErr != nil {
 				once.Do(func() {
 					err = walkErr
 				})
 			}
-		})
+			wg.Done()
+		}()
 	}
 	wg.Wait()
 

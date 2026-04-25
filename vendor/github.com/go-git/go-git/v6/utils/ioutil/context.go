@@ -99,7 +99,6 @@ func (w *ctxWriter) Write(buf []byte) (int, error) {
 	return total, nil
 }
 
-// Reader is an io.Reader.
 type Reader interface {
 	io.Reader
 }
