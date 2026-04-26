@@ -68,9 +68,7 @@ func (r *Repository) GitStatus() (git.Status, error) { return r.worktree.Status(
 
 // GitReset performs a git reset in the repository.
 func (r *Repository) GitReset(mode git.ResetMode) error {
-	return r.worktree.Reset(&git.ResetOptions{
-		Mode: mode,
-	})
+	return r.worktree.Reset(&git.ResetOptions{Mode: mode})
 }
 
 // GitClean performs a git clean in the repository.
