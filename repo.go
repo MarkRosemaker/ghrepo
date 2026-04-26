@@ -67,7 +67,11 @@ func (r *Repository) GetChangedFiles() ([]string, error) {
 func (r *Repository) GitStatus() (git.Status, error) { return r.worktree.Status() }
 
 // GitReset performs a git reset in the repository.
-func (r *Repository) GitReset() error { return r.worktree.Reset(&git.ResetOptions{}) }
+func (r *Repository) GitReset(mode git.ResetMode) error {
+	return r.worktree.Reset(&git.ResetOptions{
+		Mode: mode,
+	})
+}
 
 // Checkout checks out the specified branch.
 // func (r *Repository) Checkout(branch string) error {
