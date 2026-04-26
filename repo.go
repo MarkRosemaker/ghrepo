@@ -73,6 +73,11 @@ func (r *Repository) GitReset(mode git.ResetMode) error {
 	})
 }
 
+// GitClean performs a git clean in the repository.
+func (r *Repository) GitClean() error {
+	return r.worktree.Clean(&git.CleanOptions{Dir: true})
+}
+
 // Checkout checks out the specified branch.
 // func (r *Repository) Checkout(branch string) error {
 // 	return r.worktree.Checkout(&git.CheckoutOptions{
