@@ -17,7 +17,7 @@ require (
 	github.com/cyphar/filepath-securejoin v0.6.1 // indirect
 	github.com/emirpasic/gods v1.18.1 // indirect
 	github.com/go-git/gcfg/v2 v2.0.2 // indirect
-	github.com/go-git/go-billy/v6 v6.0.0-20260424211911-732291493fb8 // indirect
+	github.com/go-git/go-billy/v6 v6.0.0-20260504142752-cb8e9d337266 // indirect
 	github.com/google/go-querystring v1.2.0 // indirect
 	github.com/kevinburke/ssh_config v1.6.0 // indirect
 	github.com/klauspost/cpuid/v2 v2.3.0 // indirect
