@@ -15,7 +15,8 @@ func main() {
 }
 
 func do(ctx context.Context) error {
-	s := ghrepo.NewService(ctx, os.Getenv("GITHUB_TOKEN"),
+	s := ghrepo.NewService(
+		ctx, os.Getenv("GITHUB_TOKEN"),
 		ghrepo.WithBaseDir("/Users/mark/go/src/github.com/"),
 		// ghrepo.MakeDirAll,
 		// ghrepo.InitGit,

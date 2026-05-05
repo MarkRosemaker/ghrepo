@@ -37,7 +37,8 @@ func NewService(ctx context.Context, githubToken string, opts ...Option) *Servic
 	return &Service{
 		githubToken: githubToken,
 		github: github.NewClient(oauth2.NewClient(ctx, oauth2.StaticTokenSource(
-			&oauth2.Token{AccessToken: githubToken}))),
+			&oauth2.Token{AccessToken: githubToken},
+		))),
 		gitOpts: []client.Option{
 			client.WithHTTPAuth(&githttp.BasicAuth{
 				// Can be anything non-empty for token auth

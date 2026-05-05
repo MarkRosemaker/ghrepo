@@ -169,7 +169,8 @@ func (r *Repository) uploadReleaseAsset(ctx context.Context, relID int,
 	req, err := r.s.github.NewUploadRequest(
 		fmt.Sprintf("repos/%s/%s/releases/%d/assets?name=%s", r.owner, r.name, relID, assetName),
 		reader, size,
-		mime.TypeByExtension(filepath.Ext(assetName)))
+		mime.TypeByExtension(filepath.Ext(assetName)),
+	)
 	if err != nil {
 		return nil, fmt.Errorf("creating upload request: %w", err)
 	}
