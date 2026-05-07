@@ -18,6 +18,7 @@ require (
 	github.com/emirpasic/gods v1.18.1 // indirect
 	github.com/go-git/gcfg/v2 v2.0.2 // indirect
 	github.com/go-git/go-billy/v6 v6.0.0-20260505113209-2b60adf67f98 // indirect
+	github.com/go-git/go-git-fixtures/v6 v6.0.0-20260502205956-66bffbe5a6ff // indirect
 	github.com/google/go-querystring v1.2.0 // indirect
 	github.com/kevinburke/ssh_config v1.6.0 // indirect
 	github.com/klauspost/cpuid/v2 v2.3.0 // indirect
