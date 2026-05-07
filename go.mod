@@ -4,7 +4,7 @@ go 1.25.5
 
 require (
 	github.com/Masterminds/semver/v3 v3.5.0
-	github.com/go-git/go-git/v6 v6.0.0-alpha.2
+	github.com/go-git/go-git/v6 v6.0.0-alpha.3
 	github.com/google/go-github/v80 v80.0.0
 	github.com/spf13/afero v1.15.0
 	golang.org/x/oauth2 v0.36.0
