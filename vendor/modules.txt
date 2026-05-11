@@ -46,10 +46,6 @@ github.com/cloudflare/circl/math/mlsbset
 github.com/cloudflare/circl/sign
 github.com/cloudflare/circl/sign/ed25519
 github.com/cloudflare/circl/sign/ed448
-# github.com/cyphar/filepath-securejoin v0.6.1
-## explicit; go 1.18
-github.com/cyphar/filepath-securejoin
-github.com/cyphar/filepath-securejoin/internal/consts
 # github.com/emirpasic/gods v1.18.1
 ## explicit; go 1.2
 github.com/emirpasic/gods/containers
@@ -64,7 +60,7 @@ github.com/go-git/gcfg/v2
 github.com/go-git/gcfg/v2/scanner
 github.com/go-git/gcfg/v2/token
 github.com/go-git/gcfg/v2/types
-# github.com/go-git/go-billy/v6 v6.0.0-20260509100505-20932ef6e926
+# github.com/go-git/go-billy/v6 v6.0.0-alpha.1
 ## explicit; go 1.25.0
 github.com/go-git/go-billy/v6
 github.com/go-git/go-billy/v6/helper/chroot

@@ -14,10 +14,9 @@ require (
 	github.com/Microsoft/go-winio v0.6.2 // indirect
 	github.com/ProtonMail/go-crypto v1.4.1 // indirect
 	github.com/cloudflare/circl v1.6.3 // indirect
-	github.com/cyphar/filepath-securejoin v0.6.1 // indirect
 	github.com/emirpasic/gods v1.18.1 // indirect
 	github.com/go-git/gcfg/v2 v2.0.2 // indirect
-	github.com/go-git/go-billy/v6 v6.0.0-20260509100505-20932ef6e926 // indirect
+	github.com/go-git/go-billy/v6 v6.0.0-alpha.1 // indirect
 	github.com/go-git/go-git-fixtures/v6 v6.0.0-20260502205956-66bffbe5a6ff // indirect
 	github.com/google/go-querystring v1.2.0 // indirect
 	github.com/kevinburke/ssh_config v1.6.0 // indirect
