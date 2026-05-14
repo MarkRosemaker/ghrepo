@@ -117,7 +117,7 @@ func (r *Repository) Pull(ctx context.Context) error {
 		RemoteName:    "origin",
 		ClientOptions: r.s.gitOpts,
 		Force:         true,
-	}); err != nil {
+	}); err != nil && !errors.Is(err, git.NoErrAlreadyUpToDate) {
 		return fmt.Errorf("fetching origin: %w", err)
 	}
 
