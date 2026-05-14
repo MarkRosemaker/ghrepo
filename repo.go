@@ -106,9 +106,34 @@ func (r *Repository) Pull(ctx context.Context) error {
 		ClientOptions: r.s.gitOpts,
 	}); err == nil || errors.Is(err, git.NoErrAlreadyUpToDate) {
 		return nil
-	} else {
+	} else if !errors.Is(err, git.ErrNonFastForwardUpdate) {
 		return err
 	}
+
+	// We got [git.ErrNonFastForwardUpdate].
+	// The error occurs when the local and remote branches have diverged (meaning both have new commits the other doesn't know about). While the Git CLI handles this by performing a merge, go-git simply rejects the operation with a "non-fast-forward update" error.
+
+	if err := r.remote.FetchContext(ctx, &git.FetchOptions{
+		RemoteName:    "origin",
+		ClientOptions: r.s.gitOpts,
+		Force:         true,
+	}); err != nil {
+		return fmt.Errorf("fetching origin: %w", err)
+	}
+
+	ref, err := r.gitrepo.Reference(plumbing.NewRemoteReferenceName("origin", r.defaultBranch.Short()), true)
+	if err != nil {
+		return fmt.Errorf("getting default branch reference: %w", err)
+	}
+
+	if err := r.worktree.Reset(&git.ResetOptions{
+		Mode:   git.HardReset,
+		Commit: ref.Hash(),
+	}); err != nil {
+		return fmt.Errorf("resetting: %w", err)
+	}
+
+	return nil
 }
 
 var errNoDefaultBranch = errors.New("no default branch found")
