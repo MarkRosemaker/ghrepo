@@ -86,6 +86,16 @@ type Config struct {
 		FileMode bool
 		// HooksPath is the path to look for hooks instead of $GIT_DIR/hooks.
 		HooksPath string
+		// ProtectNTFS controls whether NTFS-specific path protections are
+		// applied (e.g. rejecting .git trailing spaces/periods, alternate
+		// data streams, 8.3 short names). When unset, defaults to true on
+		// Windows.
+		ProtectNTFS OptBool
+		// ProtectHFS controls whether HFS+-specific path protections are
+		// applied (e.g. rejecting .git with Unicode zero-width or
+		// directional characters that HFS+ would normalize away).
+		// When unset, defaults to true on macOS.
+		ProtectHFS OptBool
 	}
 
 	User user
@@ -468,6 +478,8 @@ const (
 	autoCRLFKey                = "autocrlf"
 	fileModeKey                = "filemode"
 	hooksPathKey               = "hooksPath"
+	protectNTFSKey             = "protectNTFS"
+	protectHFSKey              = "protectHFS"
 	indexSection               = "index"
 	skipHashKey                = "skipHash"
 	formatKey                  = "format"
@@ -532,6 +544,14 @@ func (c *Config) unmarshalCore() {
 	c.Core.CommentChar = s.Options.Get(commentCharKey)
 	c.Core.AutoCRLF = s.Options.Get(autoCRLFKey)
 	c.Core.HooksPath = s.Options.Get(hooksPathKey)
+
+	if parsed := parseConfigBool(s.Options.Get(protectNTFSKey)); parsed.IsSet() {
+		c.Core.ProtectNTFS = parsed
+	}
+
+	if parsed := parseConfigBool(s.Options.Get(protectHFSKey)); parsed.IsSet() {
+		c.Core.ProtectHFS = parsed
+	}
 
 	if fileMode := s.Options.Get(fileModeKey); fileMode == "false" {
 		c.Core.FileMode = false
@@ -664,7 +684,8 @@ func unmarshalSubmodules(fc *format.Config, submodules map[string]*Submodule) {
 		m := &Submodule{}
 		m.unmarshal(sub)
 
-		if errors.Is(m.Validate(), ErrModuleBadPath) {
+		if err := m.Validate(); errors.Is(err, ErrModuleBadPath) ||
+			errors.Is(err, ErrModuleBadName) {
 			continue
 		}
 
@@ -777,6 +798,14 @@ func (c *Config) marshalCore() {
 
 	if c.Core.HooksPath != "" {
 		s.SetOption(hooksPathKey, c.Core.HooksPath)
+	}
+
+	if c.Core.ProtectNTFS.IsSet() {
+		s.SetOption(protectNTFSKey, c.Core.ProtectNTFS.FormatBool())
+	}
+
+	if c.Core.ProtectHFS.IsSet() {
+		s.SetOption(protectHFSKey, c.Core.ProtectHFS.FormatBool())
 	}
 }
 
