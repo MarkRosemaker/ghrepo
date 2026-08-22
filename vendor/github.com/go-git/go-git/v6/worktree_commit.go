@@ -78,7 +78,7 @@ func (w *Worktree) Commit(msg string, opts *CommitOptions) (plumbing.Hash, error
 	}
 
 	h := &buildTreeHelper{
-		fs: w.Filesystem,
+		fs: w.filesystem,
 		s:  w.r.Storer,
 	}
 
@@ -115,6 +115,18 @@ func (w *Worktree) CherryPick(commitOpts *CommitOptions, ortStrategyOption OrtMe
 	if commitOpts == nil {
 		return ErrCannotCherryPickWithoutCommitOptions
 	}
+
+	cfg, err := w.r.Config()
+	if err != nil {
+		return err
+	}
+
+	// Materialise changes through the same validating filesystem and
+	// checkout path as reset/checkout, so cherry-pick shares their
+	// leading-symlink handling, mode awareness (symlinks, exec bits,
+	// CRLF) and root reuse instead of writing raw bytes via Create.
+	fs, closeFS := w.reusableRootFS()
+	defer closeFS()
 
 	for _, commit := range commits {
 		var changes object.Changes
@@ -162,16 +174,14 @@ func (w *Worktree) CherryPick(commitOpts *CommitOptions, ortStrategyOption OrtMe
 				if err != nil {
 					return err
 				}
-				content, err := to.Contents()
-				if err != nil {
-					return err
+				if to == nil {
+					continue
 				}
-				dstFile, err := w.Filesystem.Create(to.Name)
-				if err != nil {
-					return err
-				}
-				_, err = dstFile.Write([]byte(content))
-				if err != nil {
+				// change.Files names the *File after the tree leaf. The
+				// worktree write needs the full path so it lands at the
+				// right location and is validated by the wrapper.
+				to.Name = change.To.Name
+				if err := w.checkoutFile(cfg, fs, to); err != nil {
 					return err
 				}
 				if _, err := w.Add(to.Name); err != nil {
@@ -193,6 +203,11 @@ func (w *Worktree) CherryPick(commitOpts *CommitOptions, ortStrategyOption OrtMe
 }
 
 func (w *Worktree) autoAddModifiedAndDeleted() error {
+	cfg, err := w.r.Config()
+	if err != nil {
+		return err
+	}
+
 	s, err := w.Status()
 	if err != nil {
 		return err
@@ -208,7 +223,7 @@ func (w *Worktree) autoAddModifiedAndDeleted() error {
 			continue
 		}
 
-		if _, _, err := w.doAddFile(idx, s, path, nil); err != nil {
+		if _, _, err := w.doAddFile(cfg, idx, s, path, nil); err != nil {
 			return err
 		}
 	}
@@ -308,6 +323,14 @@ func (h *buildTreeHelper) BuildTree(idx *index.Index, _ *CommitOptions) (plumbin
 }
 
 func (h *buildTreeHelper) commitIndexEntry(e *index.Entry) error {
+	// Index entries with a zero hash point at no object — Tree.Encode
+	// (through Tree.Validate) refuses to write them, and the pre-fsck
+	// behavior of #1773 was to accept the entry but never reach a
+	// healthy tree. Skip them here so the resulting tree is well-formed.
+	if e.Hash.IsZero() {
+		return nil
+	}
+
 	parts := strings.Split(e.Name, "/")
 
 	var fullpath string

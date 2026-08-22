@@ -13,6 +13,7 @@ import (
 
 	"github.com/go-git/go-billy/v6/util"
 
+	"github.com/go-git/go-git/v6/config"
 	"github.com/go-git/go-git/v6/plumbing"
 	"github.com/go-git/go-git/v6/plumbing/filemode"
 	"github.com/go-git/go-git/v6/plumbing/format/gitignore"
@@ -63,10 +64,15 @@ func (w *Worktree) StatusWithOptions(o StatusOptions) (Status, error) {
 		hash = ref.Hash()
 	}
 
-	return w.status(o.Strategy, hash)
+	cfg, err := w.r.Config()
+	if err != nil {
+		return nil, err
+	}
+
+	return w.status(cfg, o.Strategy, hash)
 }
 
-func (w *Worktree) status(ss StatusStrategy, commit plumbing.Hash) (Status, error) {
+func (w *Worktree) status(cfg *config.Config, ss StatusStrategy, commit plumbing.Hash) (Status, error) {
 	s, err := ss.new(w)
 	if err != nil {
 		return nil, err
@@ -96,7 +102,7 @@ func (w *Worktree) status(ss StatusStrategy, commit plumbing.Hash) (Status, erro
 		}
 	}
 
-	right, err := w.diffStagingWithWorktree(false, true)
+	right, err := w.diffStagingWithWorktree(cfg, false, true)
 	if err != nil {
 		return nil, err
 	}
@@ -135,13 +141,8 @@ func nameFromAction(ch *merkletrie.Change) string {
 	return name
 }
 
-func (w *Worktree) diffStagingWithWorktree(reverse, excludeIgnoredChanges bool) (merkletrie.Changes, error) {
+func (w *Worktree) diffStagingWithWorktree(cfg *config.Config, reverse, excludeIgnoredChanges bool) (merkletrie.Changes, error) {
 	idx, err := w.r.Storer.Index()
-	if err != nil {
-		return nil, err
-	}
-
-	cfg, err := w.r.Config()
 	if err != nil {
 		return nil, err
 	}
@@ -149,7 +150,7 @@ func (w *Worktree) diffStagingWithWorktree(reverse, excludeIgnoredChanges bool) 
 	from := mindex.NewRootNodeWithOptions(idx, mindex.RootNodeOptions{
 		UpholdExecutableBit: cfg.Core.FileMode,
 	})
-	submodules, err := w.getSubmodulesStatus()
+	submodules, err := w.getSubmodulesStatus(cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -172,7 +173,7 @@ func (w *Worktree) diffStagingWithWorktree(reverse, excludeIgnoredChanges bool) 
 		}
 	}
 
-	to := filesystem.NewRootNodeWithOptions(w.Filesystem, submodules, fsOpts)
+	to := filesystem.NewRootNodeWithOptions(w.filesystem, submodules, fsOpts)
 
 	if reverse {
 		return merkletrie.DiffTree(to, from, diffTreeIsEquals)
@@ -181,17 +182,17 @@ func (w *Worktree) diffStagingWithWorktree(reverse, excludeIgnoredChanges bool) 
 }
 
 func (w *Worktree) collectIgnorePatterns() []gitignore.Pattern {
-	patterns, err := gitignore.ReadPatterns(w.Filesystem, nil)
+	patterns, err := gitignore.ReadPatterns(w.filesystem, nil)
 	if err != nil {
 		patterns = nil
 	}
 	return append(patterns, w.Excludes...)
 }
 
-func (w *Worktree) getSubmodulesStatus() (map[string]plumbing.Hash, error) {
+func (w *Worktree) getSubmodulesStatus(cfg *config.Config) (map[string]plumbing.Hash, error) {
 	o := map[string]plumbing.Hash{}
 
-	sub, err := w.Submodules()
+	sub, err := w.submodulesWithConfig(cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -293,7 +294,7 @@ func (w *Worktree) Add(path string) (plumbing.Hash, error) {
 	return w.doAdd(path, make([]gitignore.Pattern, 0), false)
 }
 
-func (w *Worktree) doAddDirectory(idx *index.Index, s Status, directory string, ignorePattern []gitignore.Pattern) (added bool, err error) {
+func (w *Worktree) doAddDirectory(cfg *config.Config, idx *index.Index, s Status, directory string, ignorePattern []gitignore.Pattern) (added bool, err error) {
 	if len(ignorePattern) > 0 {
 		m := gitignore.NewMatcher(ignorePattern)
 		matchPath := strings.Split(directory, string(os.PathSeparator))
@@ -311,7 +312,7 @@ func (w *Worktree) doAddDirectory(idx *index.Index, s Status, directory string, 
 		}
 
 		var a bool
-		a, _, err = w.doAddFile(idx, s, name, ignorePattern)
+		a, _, err = w.doAddFile(cfg, idx, s, name, ignorePattern)
 		if err != nil {
 			return added, err
 		}
@@ -360,6 +361,11 @@ func (w *Worktree) doAdd(path string, ignorePattern []gitignore.Pattern, skipSta
 		}()
 	}
 
+	cfg, err := w.r.Config()
+	if err != nil {
+		return plumbing.ZeroHash, err
+	}
+
 	idx, err := w.r.Storer.Index()
 	if err != nil {
 		return plumbing.ZeroHash, err
@@ -368,7 +374,7 @@ func (w *Worktree) doAdd(path string, ignorePattern []gitignore.Pattern, skipSta
 	var h plumbing.Hash
 	var added bool
 
-	fi, err := w.Filesystem.Lstat(path)
+	fi, err := w.filesystem.Lstat(path)
 
 	// status is required for doAddDirectory
 	var s Status
@@ -382,7 +388,7 @@ func (w *Worktree) doAdd(path string, ignorePattern []gitignore.Pattern, skipSta
 
 	path = filepath.Clean(path)
 	if filepath.IsAbs(path) {
-		root := w.Filesystem.Root()
+		root := w.filesystem.Root()
 		relPath, err := filepath.Rel(root, path)
 		if err != nil {
 			return plumbing.ZeroHash, fmt.Errorf("path %q is not inside the worktree root %q: %w", path, root, err)
@@ -392,11 +398,12 @@ func (w *Worktree) doAdd(path string, ignorePattern []gitignore.Pattern, skipSta
 		}
 		path = relPath
 	}
+	path = filepath.ToSlash(path)
 
 	if err != nil || !fi.IsDir() {
-		added, h, err = w.doAddFile(idx, s, path, ignorePattern)
+		added, h, err = w.doAddFile(cfg, idx, s, path, ignorePattern)
 	} else {
-		added, err = w.doAddDirectory(idx, s, path, ignorePattern)
+		added, err = w.doAddDirectory(cfg, idx, s, path, ignorePattern)
 	}
 
 	if err != nil {
@@ -422,13 +429,18 @@ func (w *Worktree) AddGlob(pattern string) error {
 	}
 
 	// TODO(mcuadros): deprecate in favor of AddWithOption in v6.
-	files, err := util.Glob(w.Filesystem, pattern)
+	files, err := util.Glob(w.filesystem, pattern)
 	if err != nil {
 		return err
 	}
 
 	if len(files) == 0 {
 		return ErrGlobNoMatches
+	}
+
+	cfg, err := w.r.Config()
+	if err != nil {
+		return err
 	}
 
 	s, err := w.Status()
@@ -443,16 +455,16 @@ func (w *Worktree) AddGlob(pattern string) error {
 
 	var saveIndex bool
 	for _, file := range files {
-		fi, err := w.Filesystem.Lstat(file)
+		fi, err := w.filesystem.Lstat(file)
 		if err != nil {
 			return err
 		}
 
 		var added bool
 		if fi.IsDir() {
-			added, err = w.doAddDirectory(idx, s, file, make([]gitignore.Pattern, 0))
+			added, err = w.doAddDirectory(cfg, idx, s, file, make([]gitignore.Pattern, 0))
 		} else {
-			added, _, err = w.doAddFile(idx, s, file, make([]gitignore.Pattern, 0))
+			added, _, err = w.doAddFile(cfg, idx, s, file, make([]gitignore.Pattern, 0))
 		}
 
 		if err != nil {
@@ -474,7 +486,7 @@ func (w *Worktree) AddGlob(pattern string) error {
 // doAddFile create a new blob from path and update the index, added is true if
 // the file added is different from the index.
 // if s status is nil will skip the status check and update the index anyway
-func (w *Worktree) doAddFile(idx *index.Index, s Status, path string, ignorePattern []gitignore.Pattern) (added bool, h plumbing.Hash, err error) {
+func (w *Worktree) doAddFile(cfg *config.Config, idx *index.Index, s Status, path string, ignorePattern []gitignore.Pattern) (added bool, h plumbing.Hash, err error) {
 	if s != nil && s.File(path).Worktree == Unmodified {
 		return false, h, nil
 	}
@@ -487,7 +499,7 @@ func (w *Worktree) doAddFile(idx *index.Index, s Status, path string, ignorePatt
 		}
 	}
 
-	h, err = w.copyFileToStorage(path)
+	h, err = w.copyFileToStorage(cfg, path)
 	if err != nil {
 		if os.IsNotExist(err) {
 			added = true
@@ -504,8 +516,8 @@ func (w *Worktree) doAddFile(idx *index.Index, s Status, path string, ignorePatt
 	return true, h, err
 }
 
-func (w *Worktree) copyFileToStorage(path string) (hash plumbing.Hash, err error) {
-	fi, err := w.Filesystem.Lstat(path)
+func (w *Worktree) copyFileToStorage(cfg *config.Config, path string) (hash plumbing.Hash, err error) {
+	fi, err := w.filesystem.Lstat(path)
 	if err != nil {
 		return plumbing.ZeroHash, err
 	}
@@ -524,7 +536,7 @@ func (w *Worktree) copyFileToStorage(path string) (hash plumbing.Hash, err error
 	if fi.Mode()&os.ModeSymlink != 0 {
 		err = w.fillEncodedObjectFromSymlink(writer, path, fi)
 	} else {
-		err = w.fillEncodedObjectFromFile(writer, path, fi)
+		err = w.fillEncodedObjectFromFile(cfg, writer, path, fi)
 	}
 
 	if err != nil {
@@ -534,17 +546,12 @@ func (w *Worktree) copyFileToStorage(path string) (hash plumbing.Hash, err error
 	return w.r.Storer.SetEncodedObject(obj)
 }
 
-func (w *Worktree) fillEncodedObjectFromFile(dst io.Writer, path string, _ os.FileInfo) (err error) {
-	file, err := w.Filesystem.Open(path)
+func (w *Worktree) fillEncodedObjectFromFile(cfg *config.Config, dst io.Writer, path string, _ os.FileInfo) (err error) {
+	file, err := w.filesystem.Open(path)
 	if err != nil {
 		return err
 	}
 	defer ioutil.CheckClose(file, &err)
-
-	cfg, err := w.r.Config()
-	if err != nil {
-		return err
-	}
 
 	switch cfg.Core.AutoCRLF {
 	case "true", "input":
@@ -570,7 +577,7 @@ func (w *Worktree) fillEncodedObjectFromFile(dst io.Writer, path string, _ os.Fi
 }
 
 func (w *Worktree) fillEncodedObjectFromSymlink(dst io.Writer, path string, _ os.FileInfo) error {
-	target, err := w.Filesystem.Readlink(path)
+	target, err := w.filesystem.Readlink(path)
 	if err != nil {
 		return err
 	}
@@ -593,11 +600,15 @@ func (w *Worktree) addOrUpdateFileToIndex(idx *index.Index, filename string, h p
 }
 
 func (w *Worktree) doAddFileToIndex(idx *index.Index, filename string, h plumbing.Hash) error {
-	return w.doUpdateFileToIndex(idx.Add(filename), filename, h)
+	e, err := idx.Add(filename)
+	if err != nil {
+		return err
+	}
+	return w.doUpdateFileToIndex(e, filename, h)
 }
 
 func (w *Worktree) doUpdateFileToIndex(e *index.Entry, filename string, h plumbing.Hash) error {
-	info, err := w.Filesystem.Lstat(filename)
+	info, err := w.filesystem.Lstat(filename)
 	if err != nil {
 		return err
 	}
@@ -629,7 +640,7 @@ func (w *Worktree) Remove(path string) (plumbing.Hash, error) {
 
 	var h plumbing.Hash
 
-	fi, err := w.Filesystem.Lstat(path)
+	fi, err := w.filesystem.Lstat(path)
 	if err != nil || !fi.IsDir() {
 		h, err = w.doRemoveFile(idx, path)
 	} else {
@@ -643,7 +654,7 @@ func (w *Worktree) Remove(path string) (plumbing.Hash, error) {
 }
 
 func (w *Worktree) doRemoveDirectory(idx *index.Index, directory string) (removed bool, err error) {
-	files, err := w.Filesystem.ReadDir(directory)
+	files, err := w.filesystem.ReadDir(directory)
 	if err != nil {
 		return false, err
 	}
@@ -675,7 +686,7 @@ func (w *Worktree) doRemoveDirectory(idx *index.Index, directory string) (remove
 }
 
 func (w *Worktree) removeEmptyDirectory(path string) error {
-	files, err := w.Filesystem.ReadDir(path)
+	files, err := w.filesystem.ReadDir(path)
 	if err != nil {
 		return err
 	}
@@ -684,7 +695,7 @@ func (w *Worktree) removeEmptyDirectory(path string) error {
 		return nil
 	}
 
-	return w.Filesystem.Remove(path)
+	return w.filesystem.Remove(path)
 }
 
 func (w *Worktree) doRemoveFile(idx *index.Index, path string) (plumbing.Hash, error) {
@@ -706,7 +717,7 @@ func (w *Worktree) deleteFromIndex(idx *index.Index, path string) (plumbing.Hash
 }
 
 func (w *Worktree) deleteFromFilesystem(path string) error {
-	err := w.Filesystem.Remove(path)
+	err := w.filesystem.Remove(path)
 	if os.IsNotExist(err) {
 		return nil
 	}
@@ -730,7 +741,7 @@ func (w *Worktree) RemoveGlob(pattern string) error {
 
 	for _, e := range entries {
 		file := filepath.FromSlash(e.Name)
-		if _, err := w.Filesystem.Lstat(file); err != nil && !os.IsNotExist(err) {
+		if _, err := w.filesystem.Lstat(file); err != nil && !os.IsNotExist(err) {
 			return err
 		}
 
@@ -739,8 +750,10 @@ func (w *Worktree) RemoveGlob(pattern string) error {
 		}
 
 		dir, _ := filepath.Split(file)
-		if err := w.removeEmptyDirectory(dir); err != nil {
-			return err
+		if dir != "" {
+			if err := w.removeEmptyDirectory(dir); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -751,11 +764,11 @@ func (w *Worktree) RemoveGlob(pattern string) error {
 // not supported.
 func (w *Worktree) Move(from, to string) (plumbing.Hash, error) {
 	// TODO(mcuadros): support directories and/or implement support for glob
-	if _, err := w.Filesystem.Lstat(from); err != nil {
+	if _, err := w.filesystem.Lstat(from); err != nil {
 		return plumbing.ZeroHash, err
 	}
 
-	if _, err := w.Filesystem.Lstat(to); err == nil {
+	if _, err := w.filesystem.Lstat(to); err == nil {
 		return plumbing.ZeroHash, ErrDestinationExists
 	}
 
@@ -769,7 +782,7 @@ func (w *Worktree) Move(from, to string) (plumbing.Hash, error) {
 		return plumbing.ZeroHash, err
 	}
 
-	if err := w.Filesystem.Rename(from, to); err != nil {
+	if err := w.filesystem.Rename(from, to); err != nil {
 		return hash, err
 	}
 
