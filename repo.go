@@ -332,3 +332,19 @@ func (r *Repository) Archived() bool {
 
 	return *r.github.Archived
 }
+
+// Private reports whether the repository is private on GitHub.
+//
+// A repository GitHub has told us nothing about counts as private: treating an
+// unknown repository as public is the answer that leaks, so the safe default is
+// the one that holds back.
+func (r *Repository) Private() bool {
+	r.muGithub.Lock()
+	defer r.muGithub.Unlock()
+
+	if r.github == nil || r.github.Private == nil {
+		return true
+	}
+
+	return *r.github.Private
+}

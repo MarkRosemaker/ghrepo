@@ -7,6 +7,7 @@ import (
 
 	"github.com/go-git/go-git/v6"
 	"github.com/go-git/go-git/v6/plumbing"
+	"github.com/google/go-github/v80/github"
 )
 
 var (
@@ -261,6 +262,27 @@ func TestGetDefaultBranch(t *testing.T) {
 
 			if b != tc.want {
 				t.Fatalf("expected default branch to be %q, got %q", tc.want, b)
+			}
+		})
+	}
+}
+
+func TestPrivate(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		repo *github.Repository
+		want bool
+	}{
+		{"private", &github.Repository{Private: github.Ptr(true)}, true},
+		{"public", &github.Repository{Private: github.Ptr(false)}, false},
+		// Unknown means private: guessing public is the guess that leaks.
+		{"field unset", &github.Repository{}, true},
+		{"no metadata", nil, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			r := &Repository{github: tc.repo}
+			if got := r.Private(); got != tc.want {
+				t.Errorf("Private() = %v, want %v", got, tc.want)
 			}
 		})
 	}
