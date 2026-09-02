@@ -103,8 +103,7 @@ func TestExecCommand(t *testing.T) {
 			wantErr: true,
 			check: func(t *testing.T, out []byte, err error) {
 				t.Helper()
-				var execErr ExecError
-				if !errors.As(err, &execErr) {
+				if _, ok := errors.AsType[ExecError](err); !ok {
 					t.Fatalf("expected ExecError, got %T: %v", err, err)
 				}
 			},

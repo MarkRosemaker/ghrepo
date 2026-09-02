@@ -36,8 +36,8 @@ func TestAddRepos_GetRepo(t *testing.T) {
 
 		s := &Service{repos: map[string]map[string]*github.Repository{}}
 		s.addRepos("alice", []*github.Repository{
-			{Name: github.Ptr("alpha")},
-			{Name: github.Ptr("beta")},
+			{Name: new("alpha")},
+			{Name: new("beta")},
 		})
 
 		if got := s.getRepo("alice", "alpha"); got == nil || got.GetName() != "alpha" {
@@ -71,8 +71,8 @@ func TestAddRepos_GetRepo(t *testing.T) {
 		t.Parallel()
 
 		s := &Service{repos: map[string]map[string]*github.Repository{}}
-		first := &github.Repository{Name: github.Ptr("x"), Description: github.Ptr("first")}
-		second := &github.Repository{Name: github.Ptr("x"), Description: github.Ptr("second")}
+		first := &github.Repository{Name: new("x"), Description: new("first")}
+		second := &github.Repository{Name: new("x"), Description: new("second")}
 
 		s.addRepos("alice", []*github.Repository{first})
 		s.addRepos("alice", []*github.Repository{second})

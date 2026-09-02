@@ -296,7 +296,7 @@ func hasChanges(initial, update *github.Repository) bool {
 
 // SetDescription changes the repository description on GitHub.
 func (r *Repository) SetDescription(ctx context.Context, descr string) error {
-	return r.Edit(ctx, &github.Repository{Description: github.Ptr(descr)})
+	return r.Edit(ctx, &github.Repository{Description: new(descr)})
 }
 
 // Name returns the name of the repository.

@@ -273,8 +273,8 @@ func TestPrivate(t *testing.T) {
 		repo *github.Repository
 		want bool
 	}{
-		{"private", &github.Repository{Private: github.Ptr(true)}, true},
-		{"public", &github.Repository{Private: github.Ptr(false)}, false},
+		{"private", &github.Repository{Private: new(true)}, true},
+		{"public", &github.Repository{Private: new(false)}, false},
 		// Unknown means private: guessing public is the guess that leaks.
 		{"field unset", &github.Repository{}, true},
 		{"no metadata", nil, true},

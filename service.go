@@ -171,9 +171,9 @@ func (s *Service) NewRepository(ctx context.Context, owner, name string, opts ..
 	}
 
 	ghrepo, _, err = s.github.Repositories.Create(ctx, org, &github.Repository{
-		Name: github.Ptr(name),
+		Name: new(name),
 		// We start out with a private repository until the repository is ready to be published.
-		Visibility: github.Ptr("private"),
+		Visibility: new("private"),
 	})
 	if err != nil {
 		return nil, errors.Join(getErr, fmt.Errorf("creating GitHub repository: %w", err))
