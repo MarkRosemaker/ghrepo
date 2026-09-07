@@ -1,7 +1,6 @@
 package ghrepo
 
 import (
-	"context"
 	"errors"
 	"testing"
 )
@@ -112,7 +111,7 @@ func TestExecCommand(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			out, err := r.ExecCommand(context.Background(), tc.cmd, tc.args...)
+			out, err := r.ExecCommand(t.Context(), tc.cmd, tc.args...)
 			if (err != nil) != tc.wantErr {
 				t.Fatalf("ExecCommand() error = %v, wantErr = %v", err, tc.wantErr)
 			}

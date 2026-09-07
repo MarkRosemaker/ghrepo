@@ -1,7 +1,6 @@
 package ghrepo
 
 import (
-	"context"
 	"testing"
 
 	"github.com/google/go-github/v80/github"
@@ -10,7 +9,7 @@ import (
 func TestNewService(t *testing.T) {
 	t.Parallel()
 
-	s := NewService(context.Background(), "test-token")
+	s := NewService(t.Context(), "test-token")
 	if s == nil {
 		t.Fatal("NewService returned nil")
 	}
