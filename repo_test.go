@@ -252,7 +252,7 @@ func TestGetDefaultBranch(t *testing.T) {
 
 			b, err := getDefaultBranch(r)
 			if err != nil {
-				stat := exec.Command("git", "status")
+				stat := exec.CommandContext(t.Context(), "git", "status")
 				stat.Dir = dir
 				out, _ := stat.CombinedOutput()
 				t.Logf("Git status output: %s", out)
