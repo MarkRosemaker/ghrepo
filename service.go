@@ -81,6 +81,7 @@ func (s *Service) NewRepository(ctx context.Context, owner, name string, opts ..
 
 	// Make sure we have a git repo
 	var err error
+
 	r.gitrepo, err = git.PlainOpen(path)
 	if err != nil {
 		if (!cfg.cloneGit && !cfg.initGit) || !errors.Is(err, git.ErrRepositoryNotExists) {
@@ -198,6 +199,7 @@ func (s *Service) PrefetchUserRepositories(ctx context.Context, user string) err
 		}
 
 		s.addRepos(user, repos)
+
 		page = resp.NextPage
 	}
 
@@ -218,6 +220,7 @@ func (s *Service) PrefetchOrgRepositories(ctx context.Context, org string) error
 		}
 
 		s.addRepos(org, repos)
+
 		page = resp.NextPage
 	}
 

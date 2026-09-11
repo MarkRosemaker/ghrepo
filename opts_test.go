@@ -21,6 +21,7 @@ func TestOptions(t *testing.T) {
 			apply: WithBaseDir("/tmp/x"),
 			check: func(t *testing.T, cfg *repoConfig) {
 				t.Helper()
+
 				if cfg.baseDir != "/tmp/x" {
 					t.Fatalf("baseDir = %q, want %q", cfg.baseDir, "/tmp/x")
 				}
@@ -31,6 +32,7 @@ func TestOptions(t *testing.T) {
 			apply: WithGithubRepo(ghRepo),
 			check: func(t *testing.T, cfg *repoConfig) {
 				t.Helper()
+
 				if cfg.onGithub != ghRepo {
 					t.Fatal("onGithub not set to provided repo")
 				}
@@ -41,6 +43,7 @@ func TestOptions(t *testing.T) {
 			apply: MakeDirAll,
 			check: func(t *testing.T, cfg *repoConfig) {
 				t.Helper()
+
 				if !cfg.mkdirAll {
 					t.Fatal("mkdirAll not set")
 				}
@@ -51,6 +54,7 @@ func TestOptions(t *testing.T) {
 			apply: CloneGit,
 			check: func(t *testing.T, cfg *repoConfig) {
 				t.Helper()
+
 				if !cfg.cloneGit {
 					t.Fatal("cloneGit not set")
 				}
@@ -61,6 +65,7 @@ func TestOptions(t *testing.T) {
 			apply: InitGit,
 			check: func(t *testing.T, cfg *repoConfig) {
 				t.Helper()
+
 				if !cfg.initGit {
 					t.Fatal("initGit not set")
 				}
@@ -71,6 +76,7 @@ func TestOptions(t *testing.T) {
 			apply: CreateRemote,
 			check: func(t *testing.T, cfg *repoConfig) {
 				t.Helper()
+
 				if !cfg.createRemote {
 					t.Fatal("createRemote not set")
 				}
@@ -81,6 +87,7 @@ func TestOptions(t *testing.T) {
 			apply: CreateOnGitHub,
 			check: func(t *testing.T, cfg *repoConfig) {
 				t.Helper()
+
 				if !cfg.createOnGitHub {
 					t.Fatal("createOnGitHub not set")
 				}
@@ -91,6 +98,7 @@ func TestOptions(t *testing.T) {
 			apply: OwnerIsOrg,
 			check: func(t *testing.T, cfg *repoConfig) {
 				t.Helper()
+
 				if !cfg.ownerIsOrg {
 					t.Fatal("ownerIsOrg not set")
 				}

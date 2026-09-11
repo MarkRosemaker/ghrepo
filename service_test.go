@@ -13,15 +13,19 @@ func TestNewService(t *testing.T) {
 	if s == nil {
 		t.Fatal("NewService returned nil")
 	}
+
 	if s.githubToken != "test-token" {
 		t.Fatalf("githubToken = %q, want %q", s.githubToken, "test-token")
 	}
+
 	if s.github == nil {
 		t.Fatal("github client is nil")
 	}
+
 	if len(s.gitOpts) == 0 {
 		t.Fatal("gitOpts is empty")
 	}
+
 	if s.repos == nil {
 		t.Fatal("repos map is nil")
 	}
@@ -42,6 +46,7 @@ func TestAddRepos_GetRepo(t *testing.T) {
 		if got := s.getRepo("alice", "alpha"); got == nil || got.GetName() != "alpha" {
 			t.Fatalf("getRepo(alice, alpha) = %v, want name=alpha", got)
 		}
+
 		if got := s.getRepo("alice", "beta"); got == nil || got.GetName() != "beta" {
 			t.Fatalf("getRepo(alice, beta) = %v, want name=beta", got)
 		}
@@ -52,6 +57,7 @@ func TestAddRepos_GetRepo(t *testing.T) {
 
 		s := &Service{repos: map[string]map[string]*github.Repository{}}
 		s.addRepos("alice", nil)
+
 		if got := s.getRepo("alice", "anything"); got != nil {
 			t.Fatalf("expected nil, got %v", got)
 		}
@@ -80,6 +86,7 @@ func TestAddRepos_GetRepo(t *testing.T) {
 		if got == nil {
 			t.Fatal("expected non-nil repo")
 		}
+
 		if got.GetDescription() != "second" {
 			t.Fatalf("description = %q, want %q", got.GetDescription(), "second")
 		}

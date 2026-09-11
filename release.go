@@ -177,6 +177,7 @@ func (r *Repository) uploadReleaseAsset(ctx context.Context, relID int,
 
 	// Execute the request and unmarshal the response into a ReleaseAsset.
 	asset := &github.ReleaseAsset{}
+
 	resp, err := r.s.github.Do(ctx, req, asset)
 	if err != nil {
 		return nil, fmt.Errorf("performing upload request: %w", err)

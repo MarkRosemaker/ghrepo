@@ -74,6 +74,7 @@ func TestGetDefaultBranch(t *testing.T) {
 			}
 
 			_, err = makeCommit(dir, r)
+
 			return r, err
 		}, plumbing.Main},
 		{"master with commit", func(dir string) (*git.Repository, error) {
@@ -83,6 +84,7 @@ func TestGetDefaultBranch(t *testing.T) {
 			}
 
 			_, err = makeCommit(dir, r)
+
 			return r, err
 		}, plumbing.Master},
 		{"remote default main overrides local", func(dir string) (*git.Repository, error) {
@@ -156,6 +158,7 @@ func TestGetDefaultBranch(t *testing.T) {
 			if err := r.Storer.SetReference(plumbing.NewHashReference(remoteMain, h.Hash())); err != nil {
 				return nil, err
 			}
+
 			if err := r.Storer.SetReference(plumbing.NewSymbolicReference(remoteHead, remoteMain)); err != nil {
 				return nil, err
 			}
@@ -165,6 +168,7 @@ func TestGetDefaultBranch(t *testing.T) {
 			if err != nil {
 				return nil, err
 			}
+
 			if err := w.Checkout(&git.CheckoutOptions{
 				Branch: plumbing.NewBranchReferenceName("feature"),
 				Create: true,
@@ -193,6 +197,7 @@ func TestGetDefaultBranch(t *testing.T) {
 			if err != nil {
 				return nil, err
 			}
+
 			if err := w.Checkout(&git.CheckoutOptions{
 				Hash: commit,
 			}); err != nil {
@@ -216,6 +221,7 @@ func TestGetDefaultBranch(t *testing.T) {
 			if err != nil {
 				return nil, err
 			}
+
 			if err := w.Checkout(&git.CheckoutOptions{
 				Hash: commit,
 			}); err != nil {
@@ -245,6 +251,7 @@ func TestGetDefaultBranch(t *testing.T) {
 			t.Parallel()
 
 			dir := t.TempDir()
+
 			r, err := tc.init(dir)
 			if err != nil {
 				t.Fatalf("init git repo: %v", err)

@@ -63,9 +63,11 @@ func TestExecCommand(t *testing.T) {
 			args: []string{"hello"},
 			check: func(t *testing.T, out []byte, err error) {
 				t.Helper()
+
 				if err != nil {
 					t.Fatalf("unexpected error: %v", err)
 				}
+
 				if got := string(out); len(got) == 0 {
 					t.Fatal("expected output, got empty string")
 				}
@@ -76,6 +78,7 @@ func TestExecCommand(t *testing.T) {
 			cmd:  "true",
 			check: func(t *testing.T, out []byte, err error) {
 				t.Helper()
+
 				if err != nil {
 					t.Fatalf("unexpected error: %v", err)
 				}
@@ -87,10 +90,12 @@ func TestExecCommand(t *testing.T) {
 			wantErr: true,
 			check: func(t *testing.T, out []byte, err error) {
 				t.Helper()
+
 				var execErr ExecError
 				if !errors.As(err, &execErr) {
 					t.Fatalf("expected ExecError, got %T: %v", err, err)
 				}
+
 				if execErr.Cmd != "false" {
 					t.Fatalf("ExecError.Cmd = %q, want %q", execErr.Cmd, "false")
 				}
@@ -102,6 +107,7 @@ func TestExecCommand(t *testing.T) {
 			wantErr: true,
 			check: func(t *testing.T, out []byte, err error) {
 				t.Helper()
+
 				if _, ok := errors.AsType[ExecError](err); !ok {
 					t.Fatalf("expected ExecError, got %T: %v", err, err)
 				}
