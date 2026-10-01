@@ -294,3 +294,28 @@ func TestPrivate(t *testing.T) {
 		})
 	}
 }
+
+// TestHasChanges: GitHub reports a repository with no description as null,
+// and setting it to "" sent a PATCH that changed nothing on every run.
+func TestHasChanges(t *testing.T) {
+	for _, tc := range []struct {
+		name            string
+		initial, update *github.Repository
+		want            bool
+	}{
+		{"same description", &github.Repository{Description: new("A thing.")}, &github.Repository{Description: new("A thing.")}, false},
+		{"new description", &github.Repository{Description: new("A thing.")}, &github.Repository{Description: new("Another.")}, true},
+		{"null set to empty", &github.Repository{}, &github.Repository{Description: new("")}, false},
+		{"null set to something", &github.Repository{}, &github.Repository{Description: new("A thing.")}, true},
+		{"something set to empty", &github.Repository{Description: new("A thing.")}, &github.Repository{Description: new("")}, true},
+		{"null set to no topics", &github.Repository{}, &github.Repository{Topics: []string{}}, false},
+		{"null set to topics", &github.Repository{}, &github.Repository{Topics: []string{"go"}}, true},
+		{"nothing asked", &github.Repository{Description: new("A thing.")}, &github.Repository{}, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := hasChanges(tc.initial, tc.update); got != tc.want {
+				t.Errorf("hasChanges() = %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
