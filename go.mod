@@ -21,8 +21,8 @@ require (
 	github.com/kevinburke/ssh_config v1.6.0 // indirect
 	github.com/pjbgf/sha1cd v0.7.0 // indirect
 	github.com/sergi/go-diff v1.4.0 // indirect
-	golang.org/x/crypto v0.57.0 // indirect
-	golang.org/x/net v0.60.0 // indirect
+	golang.org/x/crypto v0.58.0 // indirect
+	golang.org/x/net v0.61.0 // indirect
 	golang.org/x/sync v0.24.0 // indirect
 	golang.org/x/sys v0.49.0 // indirect
 	golang.org/x/text v0.43.0 // indirect
