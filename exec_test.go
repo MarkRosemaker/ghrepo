@@ -2,6 +2,8 @@ package ghrepo
 
 import (
 	"errors"
+	"os"
+	"path/filepath"
 	"testing"
 )
 
@@ -126,5 +128,32 @@ func TestExecCommand(t *testing.T) {
 				tc.check(t, out, err)
 			}
 		})
+	}
+}
+
+func TestExecCommand_InRepository(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "marker"), nil, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	r := &Repository{path: dir}
+
+	out, err := r.ExecCommand(t.Context(), "ls")
+	if err != nil || string(out) != "marker\n" {
+		t.Fatalf("ls = %q, %v; want it run in the repository", out, err)
+	}
+
+	_, err = r.ExecCommand(t.Context(), "sh", "-c", "echo out; echo err >&2; exit 3")
+
+	execErr, ok := errors.AsType[ExecError](err)
+	if !ok {
+		t.Fatalf("expected ExecError, got %T: %v", err, err)
+	}
+
+	if execErr.Cmd != "sh -c echo out; echo err >&2; exit 3" || execErr.Out != "out\nerr" {
+		t.Fatalf("ExecError = %+v, want the full command and trimmed combined output", execErr)
 	}
 }
