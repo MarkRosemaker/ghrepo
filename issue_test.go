@@ -130,3 +130,70 @@ func TestEnsureLabelFailsOnOtherErrors(t *testing.T) {
 		t.Fatal("a refused lookup read as a missing label")
 	}
 }
+
+// Every open issue is listed, across pages, without the pull requests.
+func TestOpenIssues(t *testing.T) {
+	t.Parallel()
+
+	s, _ := newTestService(t, map[string]http.HandlerFunc{
+		"GET /repos/o/n/issues": func(w http.ResponseWriter, r *http.Request) {
+			if r.URL.Query().Get("page") != "2" {
+				w.Header().Set("Link", `<`+r.URL.Path+`?page=2>; rel="next"`)
+				writeJSON(w, http.StatusOK, []map[string]any{
+					{"number": 1}, {"number": 2, "pull_request": map[string]any{"url": "x"}},
+				})
+
+				return
+			}
+
+			writeJSON(w, http.StatusOK, []map[string]any{{"number": 3}})
+		},
+	})
+	r := &Repository{owner: "o", name: "n", s: s}
+
+	issues, err := r.OpenIssues(t.Context(), "devtool")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var numbers []int
+	for _, issue := range issues {
+		numbers = append(numbers, issue.GetNumber())
+	}
+
+	if !slices.Equal(numbers, []int{1, 3}) {
+		t.Errorf("listed %v, want 1 and 3", numbers)
+	}
+}
+
+// Closing comments first, then closes as completed; without a comment it only
+// closes.
+func TestCloseIssue(t *testing.T) {
+	t.Parallel()
+
+	s, rec := newTestService(t, map[string]http.HandlerFunc{
+		"POST /repos/o/n/issues/7/comments": respond(http.StatusCreated, map[string]any{"id": 1}),
+		"PATCH /repos/o/n/issues/7":         respond(http.StatusOK, map[string]any{"number": 7}),
+	})
+	r := &Repository{owner: "o", name: "n", s: s}
+
+	if err := r.CloseIssue(t.Context(), 7, "Passing again."); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := r.CloseIssue(t.Context(), 7, ""); err != nil {
+		t.Fatal(err)
+	}
+
+	var got []string
+	for _, req := range rec.requests() {
+		got = append(got, req.Method+" "+string(req.Body))
+	}
+
+	if len(got) != 3 ||
+		!strings.HasPrefix(got[0], `POST {"body":"Passing again."}`) ||
+		!strings.Contains(got[1], `"state":"closed"`) || !strings.Contains(got[1], `"state_reason":"completed"`) ||
+		!strings.HasPrefix(got[2], "PATCH") {
+		t.Errorf("requests = %q, want the comment, then the close, then a close alone", got)
+	}
+}
