@@ -76,7 +76,7 @@ github.com/emirpasic/gods/lists/arraylist
 github.com/emirpasic/gods/trees
 github.com/emirpasic/gods/trees/binaryheap
 github.com/emirpasic/gods/utils
-# github.com/go-git/gcfg/v2 v2.0.2
+# github.com/go-git/gcfg/v2 v2.0.3
 ## explicit; go 1.21
 github.com/go-git/gcfg/v2
 github.com/go-git/gcfg/v2/scanner
